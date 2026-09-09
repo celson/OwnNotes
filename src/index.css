@@ -229,3 +229,10 @@
   background-color: rgba(255, 255, 255, 0.05);
   color: #ffffff;
 }
+
+/* Masked phrase input for sensitive seed phrase entry */
+.masked-phrase {
+  -webkit-text-security: disc;
+  text-security: disc;
+}
+

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, KeyRound, Clipboard, AlertCircle, ArrowRight, PlusCircle, Trash2 } from 'lucide-react';
+import { Lock, KeyRound, Clipboard, AlertCircle, ArrowRight, PlusCircle, Trash2, Eye, EyeOff } from 'lucide-react';
 import { isValidPhrase } from '../crypto/mnemonic.js';
 import { checkVerifierToken, createVerifierToken } from '../crypto/kdf.js';
 import { vaultKeyManager } from '../services/vaultKeyManager.js';
@@ -15,6 +15,7 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
   onSwitchToCreate,
 }) => {
   const [phraseInput, setPhraseInput] = useState('');
+  const [showPhrase, setShowPhrase] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isUnlocking, setIsUnlocking] = useState(false);
   const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
@@ -117,27 +118,56 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
               <label className="text-xs font-semibold text-slate-300">
                 12-Word Recovery Phrase
               </label>
-              <button
-                type="button"
-                onClick={handlePaste}
-                className="flex items-center space-x-1 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
-              >
-                <Clipboard className="w-3.5 h-3.5" />
-                <span>Paste from Clipboard</span>
-              </button>
+              <div className="flex items-center space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setShowPhrase((prev) => !prev)}
+                  className="flex items-center space-x-1.5 text-xs text-slate-400 hover:text-slate-200 transition-colors"
+                  title={showPhrase ? 'Hide recovery phrase' : 'Show recovery phrase'}
+                >
+                  {showPhrase ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  <span>{showPhrase ? 'Hide' : 'Show'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePaste}
+                  className="flex items-center space-x-1 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+                >
+                  <Clipboard className="w-3.5 h-3.5" />
+                  <span>Paste from Clipboard</span>
+                </button>
+              </div>
             </div>
 
-            <textarea
-              rows={3}
-              value={phraseInput}
-              onChange={(e) => {
-                setPhraseInput(e.target.value);
-                if (errorMessage) setErrorMessage(null);
-              }}
-              placeholder="word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12"
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-100 text-sm font-mono placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 resize-none transition-all"
-              autoFocus
-            />
+            <div className="relative">
+              <textarea
+                rows={3}
+                value={phraseInput}
+                onChange={(e) => {
+                  setPhraseInput(e.target.value);
+                  if (errorMessage) setErrorMessage(null);
+                }}
+                placeholder={
+                  showPhrase
+                    ? 'word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12'
+                    : '•••••••• •••••••• •••••••• (12 recovery words)'
+                }
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="none"
+                spellCheck={false}
+                style={
+                  {
+                    WebkitTextSecurity: showPhrase ? 'none' : 'disc',
+                    textSecurity: showPhrase ? 'none' : 'disc',
+                  } as React.CSSProperties
+                }
+                className={`w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-100 text-sm font-mono placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 resize-none transition-all ${
+                  !showPhrase ? 'masked-phrase' : ''
+                }`}
+                autoFocus
+              />
+            </div>
 
             <div className="flex items-center justify-between mt-2 text-xs">
               <span className="text-slate-500">

@@ -11,6 +11,7 @@ import type { DerivedKeys } from './types.js';
 export const INFO_VAULT = encodeUtf8('ownnotes-vault-v1');
 export const INFO_VERIFIER = encodeUtf8('ownnotes-verifier-v1');
 export const INFO_BACKUP = encodeUtf8('ownnotes-backup-v1');
+export const INFO_IDENTITY = encodeUtf8('ownnotes-identity-v1');
 
 const CHALLENGE_MESSAGE = encodeUtf8('ownnotes-vault-challenge-v1');
 
@@ -36,6 +37,16 @@ export function deriveBackupKey(seed: Uint8Array): Uint8Array {
 }
 
 /**
+ * Derives a deterministic 32-byte public vault ID (64-char hex string) from the seed.
+ * Used as the user's pseudonymous bucket ID on Supabase.
+ * Because of HKDF domain separation, knowledge of vaultId reveals zero key material.
+ */
+export function deriveVaultId(seed: Uint8Array): string {
+  const bytes = hkdf(sha256, seed, undefined, INFO_IDENTITY, 32);
+  return bytesToHex(bytes);
+}
+
+/**
  * Derives all domain-separated subkeys from the 64-byte seed.
  */
 export function deriveAllKeys(seed: Uint8Array): DerivedKeys {
@@ -43,6 +54,7 @@ export function deriveAllKeys(seed: Uint8Array): DerivedKeys {
     vaultKey: deriveVaultKey(seed),
     verifierKey: deriveVerifierKey(seed),
     backupKey: deriveBackupKey(seed),
+    vaultId: deriveVaultId(seed),
   };
 }
 

@@ -13,6 +13,7 @@ type Listener = () => void;
 
 class VaultKeyManager {
   private activeVaultKey: Uint8Array | null = null;
+  private activeVaultId: string | null = null;
   private autoLockMinutes = 15; // default: 15 minutes
   private autoLockTimer: ReturnType<typeof setTimeout> | null = null;
   private lockListeners = new Set<Listener>();
@@ -27,13 +28,14 @@ class VaultKeyManager {
    * Unlock the vault with the 12-word mnemonic phrase.
    * Derives keys in memory and immediately sanitizes the seed.
    */
-  public unlock(phrase: string): { verifierKey: Uint8Array; backupKey: Uint8Array } {
+  public unlock(phrase: string): { verifierKey: Uint8Array; backupKey: Uint8Array; vaultId: string } {
     this.lock(); // clear previous state if any
 
     const seed = phraseToSeed(phrase);
     const keys = deriveAllKeys(seed);
 
     this.activeVaultKey = keys.vaultKey;
+    this.activeVaultId = keys.vaultId;
 
     // Zero the temporary seed memory buffer immediately
     wipe(seed);
@@ -44,6 +46,7 @@ class VaultKeyManager {
     return {
       verifierKey: keys.verifierKey,
       backupKey: keys.backupKey,
+      vaultId: keys.vaultId,
     };
   }
 
@@ -55,6 +58,7 @@ class VaultKeyManager {
       wipe(this.activeVaultKey);
       this.activeVaultKey = null;
     }
+    this.activeVaultId = null;
     if (this.autoLockTimer) {
       clearTimeout(this.autoLockTimer);
       this.autoLockTimer = null;
@@ -67,6 +71,13 @@ class VaultKeyManager {
    */
   public isUnlocked(): boolean {
     return this.activeVaultKey !== null && this.activeVaultKey.some((b) => b !== 0);
+  }
+
+  /**
+   * Returns the current public vaultId (pseudonymous bucket ID for Supabase sync).
+   */
+  public getVaultId(): string | null {
+    return this.activeVaultId;
   }
 
   /**

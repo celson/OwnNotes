@@ -3,6 +3,7 @@ import { vaultKeyManager } from './services/vaultKeyManager.js';
 import { storageAdapter } from './services/storage/indexedDbAdapter.js';
 import { encryptNote, decryptNote, wipe } from './crypto/index.js';
 import type { NoteItem } from './crypto/types.js';
+import { supabaseSync, isSupabaseConfigured, type SyncStatus } from './services/supabase/index.js';
 
 import { SecurityHeader } from './components/SecurityHeader.js';
 import { Sidebar, type FilterType } from './components/Sidebar.js';
@@ -25,11 +26,13 @@ export const App: React.FC = () => {
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
 
-  // UI state
+  // UI & Sync state
   const [isSaving, setIsSaving] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [autoLockMinutes, setAutoLockMinutes] = useState(() => vaultKeyManager.getAutoLockMinutes());
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>(() => supabaseSync.getStatus());
+  const [cloudConfigured, setCloudConfigured] = useState(() => isSupabaseConfigured());
 
   // Debounce save timer
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -55,9 +58,14 @@ export const App: React.FC = () => {
       setShowCreateModal(false);
     });
 
+    const unregSync = supabaseSync.onStatusChange((status) => {
+      setSyncStatus(status);
+    });
+
     return () => {
       unregLock();
       unregUnlock();
+      unregSync();
     };
   }, []);
 
@@ -95,6 +103,7 @@ OwnNotes is your private, zero-knowledge encrypted vault.
 - **XChaCha20-Poly1305**: Encrypted at rest and in transit with 24-byte random nonces.
 - **RAM-only Lifecycle**: Keys reside solely in memory and are overwritten with zeroes upon locking.
 - **Full Privacy**: Titles, bodies, and tags are encrypted inside the ciphertext payload.
+- **Supabase Cloud Sync**: Encrypted records sync across devices. Supabase sees only ciphertext!
 
 Enjoy private note taking!
 `,
@@ -112,6 +121,10 @@ Enjoy private note taking!
         wipe(encKey);
         await storageAdapter.saveEncrypted(encRec);
 
+        if (isSupabaseConfigured()) {
+          supabaseSync.pushRecord(encRec);
+        }
+
         decryptedList.push(welcomeNote);
       }
 
@@ -127,9 +140,23 @@ Enjoy private note taking!
     }
   }, []);
 
+  // Initial load and cloud sync trigger on unlock
   useEffect(() => {
     if (isUnlocked) {
-      loadDecryptedNotes();
+      loadDecryptedNotes().then(() => {
+        if (isSupabaseConfigured()) {
+          supabaseSync.syncAll(loadDecryptedNotes);
+        }
+      });
+
+      // Subscribe to real-time sync across devices
+      const unsubscribeRealtime = supabaseSync.subscribeRealtime(() => {
+        loadDecryptedNotes();
+      });
+
+      return () => {
+        unsubscribeRealtime();
+      };
     }
   }, [isUnlocked, loadDecryptedNotes]);
 
@@ -144,6 +171,11 @@ Enjoy private note taking!
       wipe(key);
 
       await storageAdapter.saveEncrypted(record);
+
+      // Cloud Sync push
+      if (isSupabaseConfigured()) {
+        supabaseSync.pushRecord(record, noteToSave.isTrashed);
+      }
     } catch (err) {
       console.error('Error encrypting and saving note:', err);
     } finally {
@@ -201,6 +233,12 @@ Enjoy private note taking!
   const handleDeleteNote = async (id: string, permanent = false) => {
     if (permanent) {
       await storageAdapter.deleteEncrypted(id);
+      if (isSupabaseConfigured()) {
+        supabaseSync.pushRecord(
+          { id, nonce: '', ciphertext: '', createdAt: 0, updatedAt: Date.now() },
+          true
+        );
+      }
       setNotes((prev) => prev.filter((n) => n.id !== id));
       if (selectedNoteId === id) {
         setSelectedNoteId(null);
@@ -227,6 +265,12 @@ Enjoy private note taking!
     setAutoLockMinutes(mins);
   };
 
+  const handleManualSync = async () => {
+    if (isSupabaseConfigured()) {
+      await supabaseSync.syncAll(loadDecryptedNotes);
+    }
+  };
+
   const selectedNote = notes.find((n) => n.id === selectedNoteId) || null;
 
   return (
@@ -236,6 +280,9 @@ Enjoy private note taking!
         onLock={handleLockVault}
         onOpenSettings={() => setIsSettingsOpen(true)}
         autoLockMinutes={autoLockMinutes}
+        syncStatus={syncStatus}
+        onManualSync={handleManualSync}
+        isCloudConfigured={cloudConfigured}
       />
 
       {/* Main Workspace */}
@@ -296,6 +343,7 @@ Enjoy private note taking!
         onLockVault={handleLockVault}
         onPurgeVault={handlePurgeVault}
         onReloadNotes={loadDecryptedNotes}
+        onSyncStatusChange={() => setCloudConfigured(isSupabaseConfigured())}
       />
     </div>
   );

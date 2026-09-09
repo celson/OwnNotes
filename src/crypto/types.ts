@@ -2,6 +2,7 @@ export interface DerivedKeys {
   vaultKey: Uint8Array;
   verifierKey: Uint8Array;
   backupKey: Uint8Array;
+  vaultId: string; // Deterministic 32-byte hex ID for cloud sync routing
 }
 
 export interface EncryptedPayload {
@@ -15,6 +16,16 @@ export interface EncryptedSerializedRecord {
   ciphertext: string; // Base64
   createdAt: number;
   updatedAt: number;
+}
+
+export interface SupabaseNoteRow {
+  id: string;
+  vault_id: string;
+  nonce: string;
+  ciphertext: string;
+  created_at: number;
+  updated_at: number;
+  is_deleted: boolean;
 }
 
 export interface NoteItem {

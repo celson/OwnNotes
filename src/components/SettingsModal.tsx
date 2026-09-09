@@ -9,8 +9,19 @@ import {
   Lock,
   CheckCircle,
   AlertTriangle,
+  Cloud,
+  Check,
+  Copy,
+  Code2,
 } from 'lucide-react';
 import { exportVaultBackup, importVaultBackup } from '../services/backup.js';
+import {
+  getSupabaseConfig,
+  setSupabaseConfig,
+  clearSupabaseConfig,
+} from '../services/supabase/config.js';
+import { supabaseSync } from '../services/supabase/syncService.js';
+import { resetSupabaseClient } from '../services/supabase/client.js';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -20,7 +31,38 @@ interface SettingsModalProps {
   onLockVault: () => void;
   onPurgeVault: () => void;
   onReloadNotes: () => void;
+  onSyncStatusChange?: () => void;
 }
+
+const SQL_SCHEMA = `-- Run this in your Supabase SQL Editor:
+create table if not exists public.ownnotes_records (
+  id uuid primary key,
+  vault_id text not null,
+  nonce text not null,
+  ciphertext text not null,
+  created_at bigint not null,
+  updated_at bigint not null,
+  is_deleted boolean not null default false
+);
+
+create index if not exists idx_ownnotes_records_vault_sync
+  on public.ownnotes_records (vault_id, updated_at desc);
+
+alter table public.ownnotes_records enable row level security;
+
+create policy "OwnNotes anon select"
+  on public.ownnotes_records for select to anon, authenticated using (true);
+
+create policy "OwnNotes anon insert"
+  on public.ownnotes_records for insert to anon, authenticated with check (true);
+
+create policy "OwnNotes anon update"
+  on public.ownnotes_records for update to anon, authenticated using (true) with check (true);
+
+create policy "OwnNotes anon delete"
+  on public.ownnotes_records for delete to anon, authenticated using (true);
+
+alter publication supabase_realtime add table public.ownnotes_records;`;
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen,
@@ -30,11 +72,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onLockVault,
   onPurgeVault,
   onReloadNotes,
+  onSyncStatusChange,
 }) => {
+  const [activeTab, setActiveTab] = useState<'security' | 'supabase'>('security');
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [confirmPurge, setConfirmPurge] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Supabase state
+  const existingConfig = getSupabaseConfig();
+  const [supabaseUrl, setSupabaseUrl] = useState(existingConfig?.url || '');
+  const [supabaseAnonKey, setSupabaseAnonKey] = useState(existingConfig?.anonKey || '');
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [isTesting, setIsTesting] = useState(false);
+  const [copiedSql, setCopiedSql] = useState(false);
+  const [showSqlSchema, setShowSqlSchema] = useState(false);
 
   if (!isOpen) return null;
 
@@ -68,167 +121,341 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
+  const handleSaveAndTestSupabase = async () => {
+    setTestResult(null);
+    if (!supabaseUrl.trim() || !supabaseAnonKey.trim()) {
+      setTestResult({ success: false, message: 'Please enter both Supabase URL and Anon Key.' });
+      return;
+    }
+
+    try {
+      setIsTesting(true);
+      setSupabaseConfig(supabaseUrl, supabaseAnonKey);
+      resetSupabaseClient();
+
+      const res = await supabaseSync.testConnection();
+      setTestResult(res);
+
+      if (res.success) {
+        // Trigger initial sync
+        await supabaseSync.syncAll(onReloadNotes);
+        if (onSyncStatusChange) onSyncStatusChange();
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setTestResult({ success: false, message: `Error: ${msg}` });
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
+  const handleDisconnectSupabase = () => {
+    clearSupabaseConfig();
+    resetSupabaseClient();
+    setSupabaseUrl('');
+    setSupabaseAnonKey('');
+    setTestResult({ success: true, message: 'Supabase cloud sync disconnected.' });
+    if (onSyncStatusChange) onSyncStatusChange();
+  };
+
+  const handleCopySql = async () => {
+    try {
+      await navigator.clipboard.writeText(SQL_SCHEMA);
+      setCopiedSql(true);
+      setTimeout(() => setCopiedSql(false), 2500);
+    } catch {
+      // Fallback
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 z-50 overflow-y-auto">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative my-auto">
-        <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-5">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full p-6 shadow-2xl relative my-auto">
+        {/* Modal Header */}
+        <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
           <div className="flex items-center space-x-2.5">
             <Shield className="w-5 h-5 text-indigo-400" />
             <h3 className="font-bold text-base text-white">Vault Settings</h3>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="space-y-6 text-xs text-slate-300">
-          {/* Section: Auto Lock */}
-          <div>
-            <h4 className="font-semibold text-slate-100 flex items-center gap-1.5 mb-2">
-              <Clock className="w-3.5 h-3.5 text-indigo-400" />
-              Auto-Lock Inactivity Timer
-            </h4>
-            <p className="text-slate-400 mb-2 leading-relaxed">
-              For security, the in-memory encryption key is wiped with zeroes after this duration of inactivity.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {[1, 5, 15, 30, 60].map((mins) => (
-                <button
-                  key={mins}
-                  type="button"
-                  onClick={() => onChangeAutoLockMinutes(mins)}
-                  className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
-                    autoLockMinutes === mins
-                      ? 'bg-indigo-600 text-white border-indigo-500'
-                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
-                  }`}
-                >
-                  {mins} min
-                </button>
-              ))}
+        {/* Tab Navigation */}
+        <div className="flex items-center space-x-2 border-b border-slate-800 pb-3 mb-5">
+          <button
+            type="button"
+            onClick={() => setActiveTab('security')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-colors ${
+              activeTab === 'security'
+                ? 'bg-indigo-600 text-white'
+                : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
+            }`}
+          >
+            <Shield className="w-3.5 h-3.5" />
+            <span>Security & Local</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('supabase')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-colors ${
+              activeTab === 'supabase'
+                ? 'bg-indigo-600 text-white'
+                : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
+            }`}
+          >
+            <Cloud className="w-3.5 h-3.5" />
+            <span>Supabase Cloud Sync</span>
+          </button>
+        </div>
+
+        {/* Tab: Security & Local */}
+        {activeTab === 'security' && (
+          <div className="space-y-6 text-xs text-slate-300">
+            {/* Section: Auto Lock */}
+            <div>
+              <h4 className="font-semibold text-slate-100 flex items-center gap-1.5 mb-2">
+                <Clock className="w-3.5 h-3.5 text-indigo-400" />
+                Auto-Lock Inactivity Timer
+              </h4>
+              <p className="text-slate-400 mb-2 leading-relaxed">
+                For security, the in-memory encryption key is wiped with zeroes after this duration of inactivity.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {[1, 5, 15, 30, 60].map((mins) => (
+                  <button
+                    key={mins}
+                    type="button"
+                    onClick={() => onChangeAutoLockMinutes(mins)}
+                    className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                      autoLockMinutes === mins
+                        ? 'bg-indigo-600 text-white border-indigo-500'
+                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                    }`}
+                  >
+                    {mins} min
+                  </button>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onLockVault();
+                }}
+                className="mt-3 flex items-center space-x-1.5 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-xs rounded-lg border border-rose-500/20 transition-colors"
+              >
+                <Lock className="w-3.5 h-3.5" />
+                <span>Lock Vault Now</span>
+              </button>
             </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                onClose();
-                onLockVault();
-              }}
-              className="mt-3 flex items-center space-x-1.5 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-xs rounded-lg border border-rose-500/20 transition-colors"
-            >
-              <Lock className="w-3.5 h-3.5" />
-              <span>Lock Vault Now</span>
-            </button>
+            {/* Section: Backup & Export */}
+            <div>
+              <h4 className="font-semibold text-slate-100 flex items-center gap-1.5 mb-2">
+                <Download className="w-3.5 h-3.5 text-indigo-400" />
+                Encrypted Backup & Portability
+              </h4>
+              <p className="text-slate-400 mb-3 leading-relaxed">
+                Export all sealed ciphertext records into a portable file. The exported file stays fully encrypted under your 12-word phrase.
+              </p>
+
+              {importStatus && (
+                <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 p-2.5 rounded-lg mb-3 flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-emerald-400" />
+                  <span>{importStatus}</span>
+                </div>
+              )}
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleExport}
+                  disabled={isExporting}
+                  className="flex items-center space-x-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-lg border border-slate-700 transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>{isExporting ? 'Exporting...' : 'Export Backup (.json)'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center space-x-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-lg border border-slate-700 transition-colors"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>Import Backup</span>
+                </button>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".json"
+                  onChange={handleImportFile}
+                  className="hidden"
+                />
+              </div>
+            </div>
+
+            {/* Section: Danger Zone */}
+            <div className="pt-3 border-t border-slate-800">
+              <h4 className="font-semibold text-rose-400 flex items-center gap-1.5 mb-2">
+                <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+                Danger Zone
+              </h4>
+
+              {confirmPurge ? (
+                <div className="bg-rose-950/30 border border-rose-500/30 p-3 rounded-xl space-y-2">
+                  <p className="text-rose-200">
+                    Are you sure? This will delete all encrypted notes and reset your local vault.
+                  </p>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      type="button"
+                      onClick={() => setConfirmPurge(false)}
+                      className="px-3 py-1.5 bg-slate-800 text-slate-300 rounded-lg"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setConfirmPurge(false);
+                        onPurgeVault();
+                      }}
+                      className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-semibold rounded-lg shadow-sm"
+                    >
+                      Confirm Permanent Erase
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmPurge(true)}
+                  className="flex items-center space-x-1.5 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-lg border border-rose-500/20 transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Reset Local Data on This Device</span>
+                </button>
+              )}
+            </div>
           </div>
+        )}
 
-          {/* Section: Backup & Export */}
-          <div>
-            <h4 className="font-semibold text-slate-100 flex items-center gap-1.5 mb-2">
-              <Download className="w-3.5 h-3.5 text-indigo-400" />
-              Encrypted Backup & Portability
-            </h4>
-            <p className="text-slate-400 mb-3 leading-relaxed">
-              Export all sealed ciphertext records into a portable file. The exported file stays fully encrypted under your 12-word phrase.
-            </p>
+        {/* Tab: Supabase Cloud Sync */}
+        {activeTab === 'supabase' && (
+          <div className="space-y-4 text-xs text-slate-300">
+            <div className="bg-indigo-950/30 border border-indigo-500/20 rounded-xl p-3.5 text-slate-300 space-y-1">
+              <strong className="text-indigo-300 block font-semibold">Zero-Knowledge Cloud Sync</strong>
+              <p className="text-slate-400 leading-relaxed text-[11px]">
+                Supabase receives only sealed ciphertext and 24-byte nonces. Your keys never leave this device.
+                Any device holding your 12-word phrase automatically syncs to the exact same vault.
+              </p>
+            </div>
 
-            {importStatus && (
-              <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 p-2.5 rounded-lg mb-3 flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-emerald-400" />
-                <span>{importStatus}</span>
+            {testResult && (
+              <div
+                className={`p-3 rounded-xl border flex items-start gap-2 ${
+                  testResult.success
+                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
+                    : 'bg-rose-500/10 border-rose-500/20 text-rose-300'
+                }`}
+              >
+                {testResult.success ? (
+                  <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                ) : (
+                  <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                )}
+                <span>{testResult.message}</span>
               </div>
             )}
 
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={handleExport}
-                disabled={isExporting}
-                className="flex items-center space-x-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-lg border border-slate-700 transition-colors"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>{isExporting ? 'Exporting...' : 'Export Backup (.json)'}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="flex items-center space-x-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-lg border border-slate-700 transition-colors"
-              >
-                <Upload className="w-3.5 h-3.5" />
-                <span>Import Backup</span>
-              </button>
-
+            <div>
+              <label className="block text-slate-200 font-medium mb-1">
+                Supabase Project URL
+              </label>
               <input
-                ref={fileInputRef}
-                type="file"
-                accept=".json"
-                onChange={handleImportFile}
-                className="hidden"
+                type="text"
+                value={supabaseUrl}
+                onChange={(e) => setSupabaseUrl(e.target.value)}
+                placeholder="https://xyzcompany.supabase.co"
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 font-mono text-xs focus:ring-1 focus:ring-indigo-500 focus:outline-none"
               />
             </div>
-          </div>
 
-          {/* Section: Cryptography Details */}
-          <div className="bg-slate-950/80 border border-slate-800/80 rounded-xl p-3.5 text-[11px] space-y-1.5">
-            <div className="font-semibold text-slate-200">Cryptographic Invariants:</div>
-            <div className="text-slate-400">
-              • <strong>Cipher:</strong> XChaCha20-Poly1305 with random 24-byte nonces.
+            <div>
+              <label className="block text-slate-200 font-medium mb-1">
+                Supabase Public Anon Key
+              </label>
+              <input
+                type="password"
+                value={supabaseAnonKey}
+                onChange={(e) => setSupabaseAnonKey(e.target.value)}
+                placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 font-mono text-xs focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              />
             </div>
-            <div className="text-slate-400">
-              • <strong>Key Origin:</strong> 128-bit BIP-39 mnemonic via PBKDF2 & HKDF-SHA256.
-            </div>
-            <div className="text-slate-400">
-              • <strong>Key Storage:</strong> 0 bytes on disk. Memory wiped on lock (`fill(0)`).
-            </div>
-          </div>
 
-          {/* Section: Danger Zone */}
-          <div className="pt-3 border-t border-slate-800">
-            <h4 className="font-semibold text-rose-400 flex items-center gap-1.5 mb-2">
-              <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
-              Danger Zone
-            </h4>
+            <div className="flex items-center justify-between gap-2 pt-2">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleSaveAndTestSupabase}
+                  disabled={isTesting}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-semibold rounded-lg shadow-sm transition-all"
+                >
+                  {isTesting ? 'Connecting...' : 'Save & Connect'}
+                </button>
 
-            {confirmPurge ? (
-              <div className="bg-rose-950/30 border border-rose-500/30 p-3 rounded-xl space-y-2">
-                <p className="text-rose-200">
-                  Are you sure? This will delete all encrypted notes and reset your local vault.
-                </p>
-                <div className="flex items-center space-x-2">
+                {getSupabaseConfig() && (
                   <button
                     type="button"
-                    onClick={() => setConfirmPurge(false)}
-                    className="px-3 py-1.5 bg-slate-800 text-slate-300 rounded-lg"
+                    onClick={handleDisconnectSupabase}
+                    className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
                   >
-                    Cancel
+                    Disconnect
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setConfirmPurge(false);
-                      onPurgeVault();
-                    }}
-                    className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-semibold rounded-lg shadow-sm"
-                  >
-                    Confirm Permanent Erase
-                  </button>
-                </div>
+                )}
               </div>
-            ) : (
+
               <button
                 type="button"
-                onClick={() => setConfirmPurge(true)}
-                className="flex items-center space-x-1.5 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-lg border border-rose-500/20 transition-colors"
+                onClick={() => setShowSqlSchema(!showSqlSchema)}
+                className="flex items-center space-x-1 text-xs text-indigo-400 hover:text-indigo-300"
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Reset Local Data on This Device</span>
+                <Code2 className="w-3.5 h-3.5" />
+                <span>{showSqlSchema ? 'Hide SQL' : 'SQL Setup Script'}</span>
               </button>
+            </div>
+
+            {/* SQL Schema View */}
+            {showSqlSchema && (
+              <div className="mt-3 bg-slate-950 border border-slate-800 rounded-xl p-3 text-[11px] font-mono space-y-2">
+                <div className="flex items-center justify-between text-slate-400">
+                  <span>Supabase SQL Table Schema:</span>
+                  <button
+                    type="button"
+                    onClick={handleCopySql}
+                    className="flex items-center space-x-1 text-indigo-400 hover:text-indigo-300"
+                  >
+                    {copiedSql ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                    <span>{copiedSql ? 'Copied' : 'Copy SQL'}</span>
+                  </button>
+                </div>
+                <pre className="overflow-x-auto text-slate-300 max-h-40 leading-relaxed">
+                  {SQL_SCHEMA}
+                </pre>
+              </div>
             )}
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

@@ -1,17 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import type { Editor as TipTapEditorInstance } from '@tiptap/core';
 import {
   Star,
   Pin,
   Trash2,
   RotateCcw,
-  Eye,
-  Edit3,
   Tag,
   Menu,
   CheckCircle2,
   Shield,
 } from 'lucide-react';
 import type { NoteItem } from '../crypto/types.js';
+import { EditorToolbar } from './editor/EditorToolbar.js';
+import { RichMarkdownEditor } from './editor/RichMarkdownEditor.js';
+import { RawMarkdownEditor } from './editor/RawMarkdownEditor.js';
 
 interface EditorProps {
   note: NoteItem | null;
@@ -28,13 +30,9 @@ export const Editor: React.FC<EditorProps> = ({
   onToggleMobileSidebar,
   isSaving,
 }) => {
-  const [isPreview, setIsPreview] = useState(false);
+  const [isSourceMode, setIsSourceMode] = useState(false);
   const [tagInput, setTagInput] = useState('');
-
-  // Reset preview mode when switching notes
-  useEffect(() => {
-    setIsPreview(false);
-  }, [note?.id]);
+  const [activeTipTapEditor, setActiveTipTapEditor] = useState<TipTapEditorInstance | null>(null);
 
   if (!note) {
     return (
@@ -71,67 +69,6 @@ export const Editor: React.FC<EditorProps> = ({
 
   const handleRemoveTag = (tagToRemove: string) => {
     onUpdateNote({ tags: note.tags.filter((t) => t !== tagToRemove) });
-  };
-
-  const renderSimpleMarkdown = (text: string) => {
-    // Lightweight markdown parser for instant preview without heavy bundles
-    const lines = text.split('\n');
-    return (
-      <div className="space-y-2 text-slate-200 text-sm leading-relaxed">
-        {lines.map((line, idx) => {
-          if (line.startsWith('# ')) {
-            return (
-              <h1 key={idx} className="text-2xl font-bold text-white border-b border-slate-800 pb-2 mt-4 mb-2">
-                {line.slice(2)}
-              </h1>
-            );
-          }
-          if (line.startsWith('## ')) {
-            return (
-              <h2 key={idx} className="text-xl font-bold text-slate-100 border-b border-slate-800/80 pb-1 mt-3 mb-2">
-                {line.slice(3)}
-              </h2>
-            );
-          }
-          if (line.startsWith('### ')) {
-            return (
-              <h3 key={idx} className="text-lg font-semibold text-slate-200 mt-2 mb-1">
-                {line.slice(4)}
-              </h3>
-            );
-          }
-          if (line.startsWith('- ') || line.startsWith('* ')) {
-            return (
-              <li key={idx} className="ml-5 list-disc text-slate-300">
-                {line.slice(2)}
-              </li>
-            );
-          }
-          if (line.startsWith('> ')) {
-            return (
-              <blockquote key={idx} className="border-l-4 border-indigo-500 pl-3 italic text-slate-400 my-2">
-                {line.slice(2)}
-              </blockquote>
-            );
-          }
-          if (line.startsWith('```')) {
-            return (
-              <div key={idx} className="font-mono text-xs bg-slate-900 border border-slate-800 p-2 rounded-lg text-slate-300 my-1">
-                {line}
-              </div>
-            );
-          }
-          if (!line.trim()) {
-            return <div key={idx} className="h-2" />;
-          }
-          return (
-            <p key={idx} className="text-slate-300">
-              {line}
-            </p>
-          );
-        })}
-      </div>
-    );
   };
 
   const wordCount = note.body.trim() ? note.body.trim().split(/\s+/).length : 0;
@@ -172,18 +109,6 @@ export const Editor: React.FC<EditorProps> = ({
             title={note.isFavorite ? 'Unfavorite' : 'Favorite'}
           >
             <Star className={`w-3.5 h-3.5 ${note.isFavorite ? 'fill-amber-400' : ''}`} />
-          </button>
-
-          <button
-            onClick={() => setIsPreview(!isPreview)}
-            className={`px-2 py-1 rounded-lg text-xs flex items-center space-x-1 border transition-colors ${
-              isPreview
-                ? 'bg-indigo-600/20 text-indigo-300 border-indigo-500/30'
-                : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
-            }`}
-          >
-            {isPreview ? <Edit3 className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-            <span>{isPreview ? 'Edit' : 'Preview'}</span>
           </button>
         </div>
 
@@ -230,6 +155,13 @@ export const Editor: React.FC<EditorProps> = ({
         </div>
       </div>
 
+      {/* Formatting Toolbar */}
+      <EditorToolbar
+        editor={activeTipTapEditor}
+        isSourceMode={isSourceMode}
+        onToggleSourceMode={() => setIsSourceMode(!isSourceMode)}
+      />
+
       {/* Title & Metadata Header */}
       <div className="px-6 pt-5 pb-2 shrink-0 space-y-3 max-w-4xl w-full mx-auto">
         <input
@@ -269,18 +201,20 @@ export const Editor: React.FC<EditorProps> = ({
         </div>
       </div>
 
-      {/* Main Body Area */}
-      <div className="flex-1 overflow-y-auto px-6 py-3 max-w-4xl w-full mx-auto">
-        {isPreview ? (
-          <div className="prose prose-invert max-w-none">
-            {renderSimpleMarkdown(note.body)}
-          </div>
-        ) : (
-          <textarea
+      {/* Main Body Area: TipTap Rich Editor OR Raw Markdown Source */}
+      <div className="flex-1 overflow-y-auto px-6 py-4 max-w-4xl w-full mx-auto flex flex-col">
+        {isSourceMode ? (
+          <RawMarkdownEditor
             value={note.body}
-            onChange={(e) => onUpdateNote({ body: e.target.value })}
-            placeholder="Write markdown here... Note content is encrypted with your private key in real-time."
-            className="w-full h-full min-h-[350px] bg-transparent text-slate-200 text-sm leading-relaxed placeholder:text-slate-600 focus:outline-none resize-none font-sans"
+            onChange={(newMarkdown) => onUpdateNote({ body: newMarkdown })}
+          />
+        ) : (
+          <RichMarkdownEditor
+            key={note.id}
+            noteId={note.id}
+            content={note.body}
+            onChange={(newMarkdown) => onUpdateNote({ body: newMarkdown })}
+            onEditorReady={setActiveTipTapEditor}
           />
         )}
       </div>

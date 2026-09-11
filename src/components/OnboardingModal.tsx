@@ -17,6 +17,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   const [phrase, setPhrase] = useState(() => generatePhrase());
   const [copied, setCopied] = useState(false);
   const [confirmedBackup, setConfirmedBackup] = useState(false);
+  const [backupWarning, setBackupWarning] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
 
   const words = phrase.split(' ');
@@ -25,6 +26,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
     setPhrase(generatePhrase());
     setCopied(false);
     setConfirmedBackup(false);
+    setBackupWarning(null);
   };
 
   const handleCopy = async () => {
@@ -59,11 +61,22 @@ ${phrase}
   };
 
   const handleInitializeVault = async () => {
-    if (!confirmedBackup) return;
-    if (!isValidPhrase(phrase)) return;
+    if (!confirmedBackup) {
+      setBackupWarning('Please check the confirmation box below confirming you saved your 12-word recovery phrase.');
+      return;
+    }
+    if (!isValidPhrase(phrase)) {
+      setBackupWarning('Invalid recovery phrase. Please click "Generate New Words" to generate a fresh phrase.');
+      return;
+    }
 
     try {
       setIsInitializing(true);
+      setBackupWarning(null);
+
+      // Reset any old local vault data so the new vault starts completely fresh
+      await storageAdapter.resetVault();
+
       // Derive keys in volatile memory
       const { verifierKey } = vaultKeyManager.unlock(phrase);
 
@@ -74,7 +87,7 @@ ${phrase}
       onVaultCreated();
     } catch (err) {
       console.error('Failed to initialize vault:', err);
-      alert('Error initializing vault. Please try again.');
+      setBackupWarning('Error initializing vault. Please try again.');
     } finally {
       setIsInitializing(false);
     }
@@ -147,19 +160,33 @@ ${phrase}
         </div>
 
         {/* Confirmation Checkbox */}
-        <div className="mb-6">
+        <div className={`mb-5 p-3 rounded-xl border transition-colors ${
+          backupWarning
+            ? 'bg-amber-500/10 border-amber-500/40 ring-1 ring-amber-500/30'
+            : 'bg-slate-950/40 border-slate-800/80'
+        }`}>
           <label className="flex items-start space-x-3 cursor-pointer group">
             <input
               type="checkbox"
               checked={confirmedBackup}
-              onChange={(e) => setConfirmedBackup(e.target.checked)}
-              className="mt-1 w-4 h-4 rounded border-slate-700 bg-slate-950 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-slate-900"
+              onChange={(e) => {
+                setConfirmedBackup(e.target.checked);
+                if (backupWarning) setBackupWarning(null);
+              }}
+              className="mt-1 w-4 h-4 rounded border-slate-700 bg-slate-950 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-slate-900 cursor-pointer"
             />
             <span className="text-xs text-slate-300 group-hover:text-slate-200 leading-relaxed">
               I have safely recorded my 12-word phrase. I understand that OwnNotes does not store it and cannot restore my vault if lost.
             </span>
           </label>
         </div>
+
+        {backupWarning && (
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 mb-5 flex items-center space-x-2 text-xs text-amber-300 animate-fadeIn">
+            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>{backupWarning}</span>
+          </div>
+        )}
 
         {/* Actions */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
@@ -173,9 +200,9 @@ ${phrase}
 
           <button
             type="button"
-            disabled={!confirmedBackup || isInitializing}
+            disabled={isInitializing}
             onClick={handleInitializeVault}
-            className="w-full sm:w-auto flex items-center justify-center space-x-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl shadow-lg shadow-indigo-600/20 transition-all active:scale-95"
+            className="w-full sm:w-auto flex items-center justify-center space-x-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl shadow-lg shadow-indigo-600/20 transition-all active:scale-95 cursor-pointer"
           >
             <span>{isInitializing ? 'Encrypting...' : 'Open My Vault'}</span>
             <ArrowRight className="w-4 h-4" />

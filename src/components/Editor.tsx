@@ -9,6 +9,7 @@ import {
   Menu,
   CheckCircle2,
   Shield,
+  Plus,
 } from 'lucide-react';
 import type { NoteItem } from '../crypto/types.js';
 import { EditorToolbar } from './editor/EditorToolbar.js';
@@ -19,6 +20,7 @@ interface EditorProps {
   note: NoteItem | null;
   onUpdateNote: (updated: Partial<NoteItem>) => void;
   onDeleteNote: (id: string, permanent?: boolean) => void;
+  onNewNote?: () => void;
   onToggleMobileSidebar: () => void;
   isSaving: boolean;
 }
@@ -27,12 +29,20 @@ export const Editor: React.FC<EditorProps> = ({
   note,
   onUpdateNote,
   onDeleteNote,
+  onNewNote,
   onToggleMobileSidebar,
   isSaving,
 }) => {
   const [isSourceMode, setIsSourceMode] = useState(false);
   const [tagInput, setTagInput] = useState('');
   const [activeTipTapEditor, setActiveTipTapEditor] = useState<TipTapEditorInstance | null>(null);
+  const titleInputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    if (note && !note.title && !note.body) {
+      titleInputRef.current?.focus();
+    }
+  }, [note?.id]);
 
   if (!note) {
     return (
@@ -43,15 +53,26 @@ export const Editor: React.FC<EditorProps> = ({
         <h3 className="text-base font-semibold text-slate-200 mb-1">
           No Note Selected
         </h3>
-        <p className="text-xs text-slate-500 max-w-sm mb-4">
+        <p className="text-xs text-slate-500 max-w-sm mb-5">
           Choose a note from the sidebar or create a new encrypted note to begin writing.
         </p>
-        <button
-          onClick={onToggleMobileSidebar}
-          className="md:hidden px-4 py-2 bg-slate-800 text-slate-300 text-xs font-semibold rounded-lg"
-        >
-          Open Notes List
-        </button>
+        <div className="flex items-center space-x-3">
+          {onNewNote && (
+            <button
+              onClick={onNewNote}
+              className="flex items-center space-x-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl shadow-md shadow-indigo-600/20 transition-all active:scale-95 cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>New Encrypted Note</span>
+            </button>
+          )}
+          <button
+            onClick={onToggleMobileSidebar}
+            className="md:hidden px-4 py-2.5 bg-slate-800 text-slate-300 text-xs font-semibold rounded-xl cursor-pointer"
+          >
+            Open Notes List
+          </button>
+        </div>
       </main>
     );
   }
@@ -165,6 +186,7 @@ export const Editor: React.FC<EditorProps> = ({
       {/* Title & Metadata Header */}
       <div className="px-6 pt-5 pb-2 shrink-0 space-y-3 max-w-4xl w-full mx-auto">
         <input
+          ref={titleInputRef}
           type="text"
           value={note.title}
           onChange={(e) => onUpdateNote({ title: e.target.value })}

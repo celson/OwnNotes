@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { vaultKeyManager } from './services/vaultKeyManager.js';
 import { storageAdapter } from './services/storage/indexedDbAdapter.js';
-import { encryptNote, decryptNote, wipe } from './crypto/index.js';
+import { encryptNote, decryptNote, wipe, generateUUID } from './crypto/index.js';
 import type { NoteItem } from './crypto/types.js';
 import { supabaseSync, isSupabaseConfigured, type SyncStatus } from './services/supabase/index.js';
 
@@ -92,7 +92,7 @@ export const App: React.FC = () => {
       // If this is a brand-new vault with 0 notes, seed a welcome note!
       if (decryptedList.length === 0 && records.length === 0) {
         const welcomeNote: NoteItem = {
-          id: crypto.randomUUID(),
+          id: generateUUID(),
           title: 'Welcome to OwnNotes 🔐',
           body: `# Welcome to OwnNotes!
 
@@ -131,10 +131,25 @@ Enjoy private note taking!
       // Sort notes: pinned first, then updatedAt desc
       decryptedList.sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0) || b.updatedAt - a.updatedAt);
 
-      setNotes(decryptedList);
-      if (decryptedList.length > 0) {
-        setSelectedNoteId(decryptedList[0].id);
-      }
+      setNotes((prevNotes) => {
+        // Retain any pending or in-memory notes that haven't landed in storage yet
+        const merged = [...decryptedList];
+        for (const p of prevNotes) {
+          if (!merged.some((m) => m.id === p.id)) {
+            merged.unshift(p);
+          }
+        }
+        merged.sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0) || b.updatedAt - a.updatedAt);
+        return merged;
+      });
+
+      setSelectedNoteId((prevId) => {
+        // Preserve active note selection! Do not jump back to pinned note on sync
+        if (prevId) {
+          return prevId;
+        }
+        return decryptedList.length > 0 ? decryptedList[0].id : null;
+      });
     } catch (err) {
       console.error('Error loading encrypted notes:', err);
     }
@@ -184,9 +199,14 @@ Enjoy private note taking!
   };
 
   // Create new note
-  const handleNewNote = () => {
+  const handleNewNote = async () => {
+    // Reset filters and search so user immediately sees their new note
+    setActiveFilter('all');
+    setSelectedTag(null);
+    setSearchQuery('');
+
     const newNote: NoteItem = {
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       title: '',
       body: '',
       tags: [],
@@ -200,7 +220,7 @@ Enjoy private note taking!
 
     setNotes((prev) => [newNote, ...prev]);
     setSelectedNoteId(newNote.id);
-    persistNoteEncrypted(newNote);
+    await persistNoteEncrypted(newNote);
   };
 
   // Update selected note
@@ -306,6 +326,7 @@ Enjoy private note taking!
           note={selectedNote}
           onUpdateNote={handleUpdateNote}
           onDeleteNote={handleDeleteNote}
+          onNewNote={handleNewNote}
           onToggleMobileSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
           isSaving={isSaving}
         />

@@ -12,6 +12,10 @@ import { TableRow } from '@tiptap/extension-table-row';
 import { TableHeader } from '@tiptap/extension-table-header';
 import { TableCell } from '@tiptap/extension-table-cell';
 import { Slice, Fragment } from '@tiptap/pm/model';
+import { createLowlight, common } from 'lowlight';
+import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
+
+const lowlight = createLowlight(common);
 
 interface RichMarkdownEditorProps {
   content: string;
@@ -32,6 +36,11 @@ export const RichMarkdownEditor: React.FC<RichMarkdownEditorProps> = ({
         heading: {
           levels: [1, 2, 3],
         },
+        codeBlock: false,
+      }),
+      CodeBlockLowlight.configure({
+        lowlight,
+        defaultLanguage: 'plaintext',
       }),
       Markdown.configure({
         html: false,

@@ -197,6 +197,64 @@
   line-height: 1.5;
 }
 
+/* Syntax highlighting token colors (lowlight / hljs) */
+.ProseMirror pre .hljs-comment,
+.ProseMirror pre .hljs-quote {
+  color: #8b949e;
+  font-style: italic;
+}
+
+.ProseMirror pre .hljs-keyword,
+.ProseMirror pre .hljs-selector-tag,
+.ProseMirror pre .hljs-meta {
+  color: #c297ff;
+}
+
+.ProseMirror pre .hljs-string,
+.ProseMirror pre .hljs-regexp,
+.ProseMirror pre .hljs-addition {
+  color: #7ee787;
+}
+
+.ProseMirror pre .hljs-number,
+.ProseMirror pre .hljs-literal,
+.ProseMirror pre .hljs-deletion {
+  color: #ffa657;
+}
+
+.ProseMirror pre .hljs-title,
+.ProseMirror pre .hljs-section {
+  color: #79c0ff;
+}
+
+.ProseMirror pre .hljs-title.class_,
+.ProseMirror pre .hljs-type,
+.ProseMirror pre .hljs-built_in {
+  color: #f2cc60;
+}
+
+.ProseMirror pre .hljs-attr,
+.ProseMirror pre .hljs-attribute,
+.ProseMirror pre .hljs-variable,
+.ProseMirror pre .hljs-template-variable,
+.ProseMirror pre .hljs-selector-class,
+.ProseMirror pre .hljs-selector-id {
+  color: #6fd7e4;
+}
+
+.ProseMirror pre .hljs-symbol,
+.ProseMirror pre .hljs-bullet {
+  color: #f1a5c0;
+}
+
+.ProseMirror pre .hljs-emphasis {
+  font-style: italic;
+}
+
+.ProseMirror pre .hljs-strong {
+  font-weight: 600;
+}
+
 /* Horizontal Rule */
 .ProseMirror hr {
   border: none;

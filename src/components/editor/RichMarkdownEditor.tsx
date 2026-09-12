@@ -11,6 +11,7 @@ import { Table } from '@tiptap/extension-table';
 import { TableRow } from '@tiptap/extension-table-row';
 import { TableHeader } from '@tiptap/extension-table-header';
 import { TableCell } from '@tiptap/extension-table-cell';
+import { Slice, Fragment } from '@tiptap/pm/model';
 
 interface RichMarkdownEditorProps {
   content: string;
@@ -62,6 +63,58 @@ export const RichMarkdownEditor: React.FC<RichMarkdownEditorProps> = ({
     editorProps: {
       attributes: {
         class: 'prose prose-invert max-w-none focus:outline-none min-h-[300px] text-slate-200 text-sm leading-relaxed',
+      },
+      handlePaste: (view, event) => {
+        const clipboardData = event.clipboardData;
+        if (!clipboardData) return false;
+
+        const html = clipboardData.getData('text/html');
+        const text = clipboardData.getData('text/plain');
+
+        if (!text) return false;
+
+        // Detect if pasted HTML comes from a terminal emulator (Ghostty, Alacritty, xterm, etc.)
+        // Ghostty / terminals copy text/html with monospace pre blocks and ANSI style spans without semantic tags
+        const isTerminalHtml = Boolean(
+          html &&
+          (
+            (html.includes('font-family: monospace') && html.includes('white-space: pre')) ||
+            html.includes('ghostty') ||
+            html.includes('terminal') ||
+            (!/<(h[1-6]|p|ul|ol|table|blockquote|a|img)\b/i.test(html) && /<(div|span)\b/i.test(html))
+          )
+        );
+
+        if (isTerminalHtml) {
+          event.preventDefault();
+          const { state, dispatch } = view;
+
+          // If inside a code block, insert as plain text directly
+          if (state.selection.$from.parent.type.spec.code) {
+            dispatch(state.tr.replaceSelectionWith(state.schema.text(text), false));
+            return true;
+          }
+
+          // Single line paste: insert clean text directly
+          const lines = text.split(/\r?\n/);
+          if (lines.length <= 1) {
+            dispatch(state.tr.insertText(text));
+            return true;
+          }
+
+          // Multiline terminal paste: preserve clean paragraphs without HTML artifacts
+          const paragraphs = lines.map((line) =>
+            state.schema.nodes.paragraph.create(
+              null,
+              line ? state.schema.text(line) : undefined
+            )
+          );
+          const fragment = Fragment.from(paragraphs);
+          dispatch(state.tr.replaceSelection(new Slice(fragment, 1, 1)));
+          return true;
+        }
+
+        return false;
       },
     },
     onUpdate: ({ editor: currentEditor }: { editor: Editor }) => {

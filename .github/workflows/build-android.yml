@@ -94,8 +94,10 @@ jobs:
           cd android
           ./gradlew assembleRelease --stacktrace
           mkdir -p ../dist-apk
+          APP_VERSION=$(node -p "require('../package.json').version")
           if [ -f "app/build/outputs/apk/release/app-release.apk" ]; then
             cp app/build/outputs/apk/release/app-release.apk ../dist-apk/OwnNotes.apk
+            cp app/build/outputs/apk/release/app-release.apk "../dist-apk/OwnNotes-v${APP_VERSION}.apk"
           else
             echo "Error: app-release.apk not found!"
             ls -la app/build/outputs/apk/release/
@@ -106,7 +108,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: OwnNotes-Android-APK
-          path: dist-apk/OwnNotes.apk
+          path: dist-apk/*.apk
           retention-days: 30
 
       - name: Backup Generated Keystore
@@ -132,8 +134,8 @@ jobs:
             - ⚡ **Supabase Cloud Sync**: Sincronização em tempo real entre dispositivos
             - 📝 **Editor Markdown TipTap**: Suporte completo a formatação, tarefas e realce de código
 
-            **Instalação**: Baixe o arquivo `OwnNotes.apk` abaixo diretamente no seu celular Android.
-          files: dist-apk/OwnNotes.apk
+            **Instalação**: Baixe o arquivo `OwnNotes-v*.apk` ou `OwnNotes.apk` abaixo diretamente no seu celular Android.
+          files: dist-apk/*.apk
           prerelease: false
           make_latest: true
         env:
@@ -143,7 +145,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist-apk/OwnNotes.apk
+          files: dist-apk/*.apk
           generate_release_notes: true
           make_latest: true
         env:

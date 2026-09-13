@@ -3,12 +3,10 @@ import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import type { Node as PMNode } from '@tiptap/pm/model';
 
-export const searchHighlightPluginKey = new PluginKey<SearchPluginState>('searchHighlight');
+import { findMatchesInDoc, type SearchMatch } from './searchUtils.js';
 
-export interface SearchMatch {
-  from: number;
-  to: number;
-}
+export { type SearchMatch };
+export const searchHighlightPluginKey = new PluginKey<SearchPluginState>('searchHighlight');
 
 export interface SearchPluginState {
   searchTerm: string;
@@ -22,28 +20,14 @@ function computeSearchDecorations(doc: PMNode, searchTerm: string, currentIndex:
   if (!cleanTerm) {
     return {
       searchTerm: '',
-      currentIndex: 0,
+      currentIndex: -1,
       results: [],
       decorations: DecorationSet.empty,
     };
   }
 
-  const query = cleanTerm.toLowerCase();
-  const results: SearchMatch[] = [];
+  const results = findMatchesInDoc(doc, cleanTerm);
   const decos: Decoration[] = [];
-
-  doc.descendants((node, pos) => {
-    if (node.isText && node.text) {
-      const text = node.text.toLowerCase();
-      let idx = text.indexOf(query);
-      while (idx !== -1) {
-        const from = pos + idx;
-        const to = from + cleanTerm.length;
-        results.push({ from, to });
-        idx = text.indexOf(query, idx + 1);
-      }
-    }
-  });
 
   results.forEach((res, i) => {
     const isCurrent = i === currentIndex;

@@ -14,22 +14,13 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
-    inputs:
-      build_type:
-        description: 'Build Type (debug is directly installable on phones)'
-        required: true
-        default: 'debug'
-        type: choice
-        options:
-          - debug
-          - release
 
 permissions:
   contents: write
 
 jobs:
   build-apk:
-    name: Build Android APK
+    name: Build Signed Android Release APK
     runs-on: ubuntu-latest
 
     steps:
@@ -66,47 +57,85 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x android/gradlew
 
-      - name: Build Android APK (Debug)
-        if: "${{ github.event_name != 'workflow_dispatch' || github.event.inputs.build_type == 'debug' }}"
+      - name: Prepare Signing Keystore
+        id: keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD || 'ownnotes-release-2026' }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS || 'ownnotes' }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD || 'ownnotes-release-2026' }}
         run: |
-          cd android
-          ./gradlew assembleDebug --stacktrace
-          mkdir -p ../dist-apk
-          cp app/build/outputs/apk/debug/app-debug.apk ../dist-apk/OwnNotes-debug.apk
+          mkdir -p "$RUNNER_TEMP/keystore"
+          KEYSTORE_FILE="$RUNNER_TEMP/keystore/release.keystore"
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "Using release keystore from GitHub Secrets"
+            echo "$KEYSTORE_BASE64" | base64 -d > "$KEYSTORE_FILE"
+            echo "IS_NEW_KEYSTORE=false" >> $GITHUB_ENV
+          else
+            echo "Generating consistent release keystore"
+            keytool -genkeypair -v \
+              -keystore "$KEYSTORE_FILE" \
+              -alias "$KEY_ALIAS" \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -storepass "$KEYSTORE_PASSWORD" \
+              -keypass "$KEY_PASSWORD" \
+              -dname "CN=OwnNotes, OU=Mobile, O=OwnNotes, L=Brasilia, ST=DF, C=BR"
+            echo "IS_NEW_KEYSTORE=true" >> $GITHUB_ENV
+          fi
+          echo "KEYSTORE_PATH=$KEYSTORE_FILE" >> $GITHUB_ENV
+          echo "KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD" >> $GITHUB_ENV
+          echo "KEY_ALIAS=$KEY_ALIAS" >> $GITHUB_ENV
+          echo "KEY_PASSWORD=$KEY_PASSWORD" >> $GITHUB_ENV
 
-      - name: Build Android APK (Release unsigned)
-        if: "${{ github.event_name == 'workflow_dispatch' && github.event.inputs.build_type == 'release' }}"
+      - name: Build Signed Android Release APK
         run: |
           cd android
           ./gradlew assembleRelease --stacktrace
           mkdir -p ../dist-apk
-          cp app/build/outputs/apk/release/app-release-unsigned.apk ../dist-apk/OwnNotes-release-unsigned.apk
+          if [ -f "app/build/outputs/apk/release/app-release.apk" ]; then
+            cp app/build/outputs/apk/release/app-release.apk ../dist-apk/OwnNotes.apk
+          else
+            echo "Error: app-release.apk not found!"
+            ls -la app/build/outputs/apk/release/
+            exit 1
+          fi
 
       - name: Upload APK as Workflow Artifact
         uses: actions/upload-artifact@v4
         with:
           name: OwnNotes-Android-APK
-          path: dist-apk/*.apk
+          path: dist-apk/OwnNotes.apk
           retention-days: 30
+
+      - name: Backup Generated Keystore
+        if: env.IS_NEW_KEYSTORE == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: OwnNotes-Release-Keystore
+          path: ${{ env.KEYSTORE_PATH }}
+          retention-days: 7
 
       - name: Publish or Update Latest Release on Main
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
-          name: OwnNotes (Latest Android Build)
+          name: OwnNotes (Official Release APK)
           body: |
-            ### 📱 OwnNotes - Build Android Atualizado
+            ### 📱 OwnNotes - Aplicativo Android Oficial (Release)
 
-            Build gerado automaticamente a partir do commit mais recente na branch `main`.
+            Versão compilada em modo **Release** e assinada oficialmente para Android.
 
-            - 🔐 **Criptografia Zero-Knowledge**: XChaCha20-Poly1305 + BIP-39
-            - ⚡ **Supabase Cloud Sync**: Sincronização em tempo real
-            - 📝 **Editor Markdown**: TipTap com Syntax Highlighting
+            - 🔐 **Criptografia Zero-Knowledge**: XChaCha20-Poly1305 + BIP-39 (RAM exclusiva)
+            - ⚡ **Supabase Cloud Sync**: Sincronização em tempo real entre dispositivos
+            - 📝 **Editor Markdown TipTap**: Suporte completo a formatação, tarefas e realce de código
 
-            **Instalação**: Baixe o arquivo `OwnNotes-debug.apk` anexado abaixo diretamente no seu Android.
-          files: dist-apk/*.apk
-          prerelease: true
+            **Instalação**: Baixe o arquivo `OwnNotes.apk` abaixo diretamente no seu celular Android.
+          files: dist-apk/OwnNotes.apk
+          prerelease: false
+          make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -114,7 +143,8 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist-apk/*.apk
+          files: dist-apk/OwnNotes.apk
           generate_release_notes: true
+          make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

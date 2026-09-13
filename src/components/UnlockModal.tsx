@@ -1,4 +1,5 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { Clipboard as CapClipboard } from '@capacitor/clipboard';
 import {
   Lock,
@@ -68,30 +69,42 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
     setRawTextInput(extracted.join(' '));
   };
 
-  // Fast paste from clipboard handler with multi-level fallback
+  // Fast paste from clipboard handler: reads directly without any disruptive popups
   const handlePasteFullPhrase = async () => {
+    setErrorMessage(null);
     let text = '';
 
-    // 1. Try Capacitor native clipboard (works seamlessly in Android APK)
-    try {
-      const capResult = await CapClipboard.read();
-      if (capResult && capResult.value) {
-        text = capResult.value;
+    if (Capacitor.isNativePlatform()) {
+      // In native Android APK: use Capacitor Clipboard plugin directly
+      try {
+        const capResult = await CapClipboard.read();
+        if (capResult && capResult.value) {
+          text = capResult.value;
+        }
+      } catch (err) {
+        console.warn('Native clipboard read error:', err);
       }
-    } catch {
-      // Not in native app or plugin error, try browser API
+    } else {
+      // In web browser: use standard navigator.clipboard.readText directly on user click
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.readText) {
+        try {
+          text = await navigator.clipboard.readText();
+        } catch (err) {
+          console.warn('Browser clipboard read error:', err);
+        }
+      }
     }
 
-    // 2. Try browser clipboard API
+    // Fallback: if native plugin returned empty on mobile, also try web clipboard
     if (!text && typeof navigator !== 'undefined' && navigator.clipboard?.readText) {
       try {
         text = await navigator.clipboard.readText();
       } catch {
-        // Permission denied or blocked by browser
+        // ignore
       }
     }
 
-    // 3. If valid text obtained
+    // Process pasted text if found
     if (text && text.trim()) {
       const extracted = extractWords(text);
       if (extracted.length > 0) {
@@ -99,22 +112,39 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
         setErrorMessage(null);
         setVaultMismatch(false);
         return;
+      } else {
+        setErrorMessage('A área de transferência não contém palavras válidas.');
+        return;
       }
     }
 
-    // 4. Fallback prompt if clipboard access is blocked by browser/OS policies
-    const promptText = window.prompt(
-      'Cole aqui sua frase de recuperação (as 12 palavras separadas por espaço):'
+    // If reading failed (e.g. browser permission denied or clipboard empty)
+    inputRefs.current[0]?.focus();
+    setErrorMessage(
+      'Área de transferência vazia ou leitura não autorizada pelo navegador. Você pode colar direto em qualquer campo (Ctrl+V).'
     );
-    if (promptText && promptText.trim()) {
-      const extracted = extractWords(promptText);
-      if (extracted.length > 0) {
-        populateSlotsFromWords(extracted);
-        setErrorMessage(null);
-        setVaultMismatch(false);
-      }
-    }
   };
+
+  // Global paste handler on modal: allows pressing Ctrl+V anywhere to distribute 12 words
+  useEffect(() => {
+    const handleGlobalPaste = (e: ClipboardEvent) => {
+      if (inputMode === 'text') return; // let textarea handle its own paste
+
+      const pasted = e.clipboardData?.getData('text') || '';
+      if (pasted && pasted.trim()) {
+        const extracted = extractWords(pasted);
+        if (extracted.length > 1) {
+          e.preventDefault();
+          populateSlotsFromWords(extracted);
+          setErrorMessage(null);
+          setVaultMismatch(false);
+        }
+      }
+    };
+
+    window.addEventListener('paste', handleGlobalPaste);
+    return () => window.removeEventListener('paste', handleGlobalPaste);
+  }, [inputMode]);
 
   // Direct paste on any individual slot distributes words across slots
   const handleSlotPaste = (index: number, e: React.ClipboardEvent<HTMLInputElement>) => {

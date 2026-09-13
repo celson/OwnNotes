@@ -86,9 +86,9 @@ class SupabaseSyncService {
       const row: SupabaseNoteRow = {
         id: record.id,
         vault_id: vaultId,
-        nonce: record.nonce,
-        ciphertext: record.ciphertext,
-        created_at: record.createdAt,
+        nonce: isDeleted ? '' : record.nonce,
+        ciphertext: isDeleted ? '' : record.ciphertext,
+        created_at: isDeleted ? 0 : record.createdAt,
         updated_at: record.updatedAt,
         is_deleted: isDeleted,
       };
@@ -147,6 +147,19 @@ class SupabaseSyncService {
             if (local) {
               await storageAdapter.deleteEncrypted(r.id);
               hasChanges = true;
+            }
+            // Auto-clean any residual ciphertext/nonce on deleted tombstones in cloud
+            if (r.nonce || r.ciphertext) {
+              await client
+                .from('ownnotes_records')
+                .update({
+                  nonce: '',
+                  ciphertext: '',
+                  created_at: 0,
+                  updated_at: Date.now(),
+                })
+                .eq('id', r.id)
+                .eq('vault_id', vaultId);
             }
           } else {
             if (!local || r.updated_at > local.updatedAt) {

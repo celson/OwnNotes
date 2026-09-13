@@ -20,18 +20,23 @@ import {
   Redo2,
   FileCode2,
   Eye,
+  Search,
 } from 'lucide-react';
 
 interface EditorToolbarProps {
   editor: Editor | null;
   isSourceMode: boolean;
   onToggleSourceMode: () => void;
+  isSearchOpen?: boolean;
+  onToggleSearch?: () => void;
 }
 
 export const EditorToolbar: React.FC<EditorToolbarProps> = ({
   editor,
   isSourceMode,
   onToggleSourceMode,
+  isSearchOpen = false,
+  onToggleSearch,
 }) => {
   if (!editor && !isSourceMode) return null;
 
@@ -241,15 +246,31 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
         )}
       </div>
 
-      {/* Mode Switch Button */}
-      <div className="shrink-0 flex items-center">
+      {/* Search & Mode Switch Buttons */}
+      <div className="shrink-0 flex items-center space-x-1.5">
+        {onToggleSearch && (
+          <button
+            type="button"
+            onClick={onToggleSearch}
+            className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
+              isSearchOpen
+                ? 'bg-indigo-600 text-white border-indigo-500 shadow-sm shadow-indigo-600/30'
+                : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white hover:bg-slate-700'
+            }`}
+            title="Buscar no texto (Ctrl+F)"
+          >
+            <Search className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Buscar</span>
+          </button>
+        )}
+
         <button
           type="button"
           onClick={onToggleSourceMode}
-          className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${
+          className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
             isSourceMode
               ? 'bg-indigo-600/20 text-indigo-300 border-indigo-500/30'
-              : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
+              : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white hover:bg-slate-700'
           }`}
           title={isSourceMode ? 'Switch to Rich WYSIWYG Editor' : 'Switch to Raw Markdown Source'}
         >

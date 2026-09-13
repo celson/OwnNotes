@@ -1,7 +1,7 @@
 {
   "name": "ownnotes",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@capacitor/android": "^8.5.2",
+    "@capacitor/clipboard": "^8.0.1",
     "@capacitor/core": "^8.5.2",
     "@noble/ciphers": "^2.3.0",
     "@noble/hashes": "^2.3.0",

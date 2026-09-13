@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import type { NoteItem } from '../crypto/types.js';
 import { EditorToolbar } from './editor/EditorToolbar.js';
+import { EditorSearchBar } from './editor/EditorSearchBar.js';
 import { RichMarkdownEditor } from './editor/RichMarkdownEditor.js';
 import { RawMarkdownEditor } from './editor/RawMarkdownEditor.js';
 
@@ -63,7 +64,105 @@ export const Editor: React.FC<EditorProps> = ({
   const [isSourceMode, setIsSourceMode] = useState(false);
   const [tagInput, setTagInput] = useState('');
   const [activeTipTapEditor, setActiveTipTapEditor] = useState<TipTapEditorInstance | null>(null);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+  const [matches, setMatches] = useState<{ from: number; to: number }[]>([]);
   const titleInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Global Ctrl+F / Cmd+F handler to open/focus in-text search
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        setIsSearchOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const jumpToMatch = (index: number, matchArray: { from: number; to: number }[]) => {
+    if (matchArray.length === 0 || !matchArray[index]) return;
+    const match = matchArray[index];
+
+    if (activeTipTapEditor && !isSourceMode) {
+      try {
+        activeTipTapEditor
+          .chain()
+          .focus()
+          .setTextSelection({ from: match.from, to: match.to })
+          .scrollIntoView()
+          .run();
+      } catch {
+        // Safe fallback
+      }
+    } else {
+      const textarea = document.querySelector('textarea');
+      if (textarea) {
+        textarea.focus();
+        textarea.setSelectionRange(match.from, match.to);
+      }
+    }
+  };
+
+  // Recompute matches on query, content, or mode change
+  React.useEffect(() => {
+    if (!isSearchOpen || !searchQuery.trim() || !note) {
+      setMatches([]);
+      setCurrentMatchIndex(0);
+      return;
+    }
+
+    const query = searchQuery.toLowerCase();
+    const found: { from: number; to: number }[] = [];
+
+    if (activeTipTapEditor && !isSourceMode) {
+      activeTipTapEditor.state.doc.descendants((node, pos) => {
+        if (node.isText && node.text) {
+          const text = node.text.toLowerCase();
+          let idx = text.indexOf(query);
+          while (idx !== -1) {
+            found.push({
+              from: pos + idx,
+              to: pos + idx + searchQuery.length,
+            });
+            idx = text.indexOf(query, idx + 1);
+          }
+        }
+      });
+    } else {
+      const bodyText = (note.body || '').toLowerCase();
+      let idx = bodyText.indexOf(query);
+      while (idx !== -1) {
+        found.push({
+          from: idx,
+          to: idx + searchQuery.length,
+        });
+        idx = bodyText.indexOf(query, idx + 1);
+      }
+    }
+
+    setMatches(found);
+    setCurrentMatchIndex(0);
+    if (found.length > 0) {
+      jumpToMatch(0, found);
+    }
+  }, [searchQuery, isSearchOpen, note?.body, isSourceMode, activeTipTapEditor]);
+
+  const handleNextMatch = () => {
+    if (matches.length === 0) return;
+    const nextIdx = (currentMatchIndex + 1) % matches.length;
+    setCurrentMatchIndex(nextIdx);
+    jumpToMatch(nextIdx, matches);
+  };
+
+  const handlePrevMatch = () => {
+    if (matches.length === 0) return;
+    const prevIdx = (currentMatchIndex - 1 + matches.length) % matches.length;
+    setCurrentMatchIndex(prevIdx);
+    jumpToMatch(prevIdx, matches);
+  };
 
   React.useEffect(() => {
     if (note && !note.title && !note.body) {
@@ -217,7 +316,25 @@ export const Editor: React.FC<EditorProps> = ({
         editor={activeTipTapEditor}
         isSourceMode={isSourceMode}
         onToggleSourceMode={() => setIsSourceMode(!isSourceMode)}
+        isSearchOpen={isSearchOpen}
+        onToggleSearch={() => setIsSearchOpen((prev) => !prev)}
       />
+
+      {/* In-Text Search Bar */}
+      {isSearchOpen && (
+        <EditorSearchBar
+          query={searchQuery}
+          onQueryChange={setSearchQuery}
+          currentIndex={currentMatchIndex}
+          totalMatches={matches.length}
+          onNext={handleNextMatch}
+          onPrev={handlePrevMatch}
+          onClose={() => {
+            setIsSearchOpen(false);
+            setSearchQuery('');
+          }}
+        />
+      )}
 
       {/* Title & Metadata Header */}
       <div className="px-6 pt-5 pb-2 shrink-0 space-y-3 max-w-4xl w-full mx-auto">

@@ -13,6 +13,16 @@ on:
       - '.github/workflows/build-android.yml'
     tags:
       - 'v*'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'android/**'
+      - 'capacitor.config.ts'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/build-android.yml'
   workflow_dispatch:
 
 permissions:

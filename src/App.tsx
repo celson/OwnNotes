@@ -189,7 +189,7 @@ Enjoy private note taking!
 
       // Cloud Sync push
       if (isSupabaseConfigured()) {
-        supabaseSync.pushRecord(record, noteToSave.isTrashed);
+        supabaseSync.pushRecord(record, false);
       }
     } catch (err) {
       console.error('Error encrypting and saving note:', err);

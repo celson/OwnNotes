@@ -113,7 +113,7 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
         setVaultMismatch(false);
         return;
       } else {
-        setErrorMessage('A área de transferência não contém palavras válidas.');
+        setErrorMessage('Clipboard does not contain any valid words.');
         return;
       }
     }
@@ -121,7 +121,7 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
     // If reading failed (e.g. browser permission denied or clipboard empty)
     inputRefs.current[0]?.focus();
     setErrorMessage(
-      'Área de transferência vazia ou leitura não autorizada pelo navegador. Você pode colar direto em qualquer campo (Ctrl+V).'
+      'Clipboard is empty or browser permission was denied. You can paste directly into any field (Ctrl+V).'
     );
   };
 
@@ -234,27 +234,27 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
     setVaultMismatch(false);
 
     if (words.length === 0) {
-      setErrorMessage('Por favor, informe suas 12 palavras de recuperação.');
+      setErrorMessage('Please enter your 12-word recovery phrase.');
       return;
     }
 
     if (wordCount !== 12) {
       setErrorMessage(
-        `A frase deve conter exatamente 12 palavras (atualmente detectadas: ${wordCount}/12).`
+        `The recovery phrase must contain exactly 12 words (currently detected: ${wordCount}/12).`
       );
       return;
     }
 
     if (invalidWords.length > 0) {
       setErrorMessage(
-        `Palavra(s) não reconhecida(s) no dicionário BIP-39: "${invalidWords.join('", "')}". Clique no ícone do olho para conferir a digitação.`
+        `Unrecognized word(s) in BIP-39 dictionary: "${invalidWords.join('", "')}". Click the eye icon to verify spelling.`
       );
       return;
     }
 
     if (hasChecksumError || !isPhraseValidBip39) {
       setErrorMessage(
-        'As 12 palavras existem no dicionário BIP-39, mas o checksum não confere. Verifique a ordem das palavras ou se alguma foi trocada.'
+        'All 12 words exist in the BIP-39 dictionary, but the checksum is invalid. Check the word order or if any word was mistyped.'
       );
       return;
     }
@@ -281,7 +281,7 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
             vaultKeyManager.lock();
             setVaultMismatch(true);
             setErrorMessage(
-              'Esta frase de 12 palavras é válida, mas pertence a outro cofre diferente do armazenado neste navegador.'
+              'This 12-word recovery phrase is valid, but belongs to a different vault than the one stored in this browser.'
             );
             return;
           }
@@ -296,7 +296,7 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
     } catch (err) {
       console.error('Unlock failure:', err);
       vaultKeyManager.lock();
-      setErrorMessage('Falha ao desbloquear cofre. Verifique se as palavras estão corretas.');
+      setErrorMessage('Failed to unlock vault. Please verify your recovery phrase.');
     } finally {
       setIsUnlocking(false);
     }
@@ -314,7 +314,7 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
     } catch (err) {
       console.error('Failed to switch vault:', err);
       vaultKeyManager.lock();
-      setErrorMessage('Erro ao redefinir e abrir o cofre.');
+      setErrorMessage('Error resetting and opening vault.');
     } finally {
       setIsUnlocking(false);
     }
@@ -326,7 +326,7 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
     setShowPurgeConfirm(false);
     setVaultMismatch(false);
     handleClear();
-    setErrorMessage('Cofre local apagado com sucesso. Você pode criar um novo ou restaurar suas 12 palavras.');
+    setErrorMessage('Local vault cleared successfully. You can create a new vault or restore your 12 words.');
   };
 
   return (
@@ -338,9 +338,9 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
             <Lock className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-white">Desbloquear OwnNotes Vault</h2>
+            <h2 className="text-lg font-bold text-white">Unlock OwnNotes Vault</h2>
             <p className="text-xs text-slate-400">
-              Digite ou cole sua frase de 12 palavras. As chaves residem exclusivamente em RAM.
+              Enter or paste your 12-word recovery phrase. Keys reside exclusively in RAM.
             </p>
           </div>
         </div>
@@ -355,13 +355,13 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
 
             {vaultMismatch && (
               <div className="pt-2 border-t border-rose-500/20 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
-                <span className="text-rose-200">Deseja substituir o cofre local e abrir este?</span>
+                <span className="text-rose-200">Do you want to replace the local vault and open this one?</span>
                 <button
                   type="button"
                   onClick={handleSwitchToThisVault}
-                  className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg font-semibold text-xs transition-colors shrink-0 shadow-sm"
+                  className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg font-semibold text-xs transition-colors shrink-0 shadow-sm cursor-pointer"
                 >
-                  Substituir e Abrir
+                  Replace & Open
                 </button>
               </div>
             )}
@@ -374,28 +374,28 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
             <button
               type="button"
               onClick={() => setInputMode('grid')}
-              className={`flex items-center space-x-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
+              className={`flex items-center space-x-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
                 inputMode === 'grid'
                   ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
               }`}
-              title="12 campos individuais para cada palavra"
+              title="12 individual fields for each word"
             >
               <LayoutGrid className="w-3.5 h-3.5" />
-              <span>12 Campos</span>
+              <span>12 Fields</span>
             </button>
             <button
               type="button"
               onClick={() => setInputMode('text')}
-              className={`flex items-center space-x-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
+              className={`flex items-center space-x-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
                 inputMode === 'text'
                   ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
               }`}
-              title="Área de texto livre para digitar ou colar"
+              title="Freeform text area to type or paste"
             >
               <AlignLeft className="w-3.5 h-3.5" />
-              <span>Texto Livre</span>
+              <span>Freeform Text</span>
             </button>
           </div>
 
@@ -403,29 +403,29 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
             <button
               type="button"
               onClick={() => setShowPhrase((prev) => !prev)}
-              className="flex items-center space-x-1 px-2 py-1 text-xs text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-lg transition-colors"
-              title={showPhrase ? 'Ocultar palavras' : 'Mostrar palavras'}
+              className="flex items-center space-x-1 px-2 py-1 text-xs text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+              title={showPhrase ? 'Hide words' : 'Show words'}
             >
               {showPhrase ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-              <span>{showPhrase ? 'Ocultar' : 'Mostrar'}</span>
+              <span>{showPhrase ? 'Hide' : 'Show'}</span>
             </button>
 
             <button
               type="button"
               onClick={handlePasteFullPhrase}
-              className="flex items-center space-x-1 px-2.5 py-1 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 rounded-lg text-xs font-medium transition-colors"
-              title="Colar frase completa da área de transferência"
+              className="flex items-center space-x-1 px-2.5 py-1 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 rounded-lg text-xs font-medium transition-colors cursor-pointer"
+              title="Paste full phrase from clipboard"
             >
               <ClipboardIcon className="w-3.5 h-3.5" />
-              <span>Colar Tudo</span>
+              <span>Paste All</span>
             </button>
 
             {(wordSlots.some(Boolean) || rawTextInput) && (
               <button
                 type="button"
                 onClick={handleClear}
-                className="p-1 text-slate-500 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition-colors"
-                title="Limpar todos os campos"
+                className="p-1 text-slate-500 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                title="Clear all fields"
               >
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
@@ -465,7 +465,7 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
                       onChange={(e) => handleSlotChange(i, e.target.value)}
                       onKeyDown={(e) => handleSlotKeyDown(i, e)}
                       onPaste={(e) => handleSlotPaste(i, e)}
-                      placeholder={`palavra ${i + 1}`}
+                      placeholder={`word ${i + 1}`}
                       autoComplete="off"
                       autoCorrect="off"
                       autoCapitalize="none"
@@ -485,7 +485,7 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
                 rows={3}
                 value={rawTextInput}
                 onChange={(e) => handleRawTextChange(e.target.value)}
-                placeholder="Cole ou digite suas 12 palavras separadas por espaço..."
+                placeholder="Paste or type your 12 words separated by spaces..."
                 autoComplete="off"
                 autoCorrect="off"
                 autoCapitalize="none"
@@ -526,7 +526,7 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
           {/* Counter and Status Bar */}
           <div className="flex flex-wrap items-center justify-between gap-1 mb-4 text-xs">
             <span className="text-slate-400">
-              Palavras preenchidas:{' '}
+              Words entered:{' '}
               <strong
                 className={
                   wordCount === 12 && isPhraseValidBip39 ? 'text-emerald-400 font-bold' : 'text-slate-200'
@@ -538,17 +538,17 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
 
             <div>
               {wordCount === 0 ? (
-                <span className="text-slate-500">Aguardando digitação ou clique em &quot;Colar Tudo&quot;</span>
+                <span className="text-slate-500">Waiting for input or click &quot;Paste All&quot;</span>
               ) : invalidWords.length > 0 ? (
                 <span className="text-rose-400 font-medium">
-                  ⚠ {invalidWords.length} palavra(s) não reconhecida(s)
+                  ⚠ {invalidWords.length} unrecognized word(s)
                 </span>
               ) : wordCount === 12 && isPhraseValidBip39 ? (
-                <span className="text-emerald-400 font-medium">✓ Frase BIP-39 válida</span>
+                <span className="text-emerald-400 font-medium">✓ Valid BIP-39 phrase</span>
               ) : wordCount === 12 && hasChecksumError ? (
-                <span className="text-amber-400 font-medium">⚠ Checksum incorreto (verifique a ordem)</span>
+                <span className="text-amber-400 font-medium">⚠ Invalid checksum (check word order)</span>
               ) : (
-                <span className="text-slate-500">Faltam {Math.max(0, 12 - wordCount)} palavra(s)</span>
+                <span className="text-slate-500">{Math.max(0, 12 - wordCount)} word(s) remaining</span>
               )}
             </div>
           </div>
@@ -563,12 +563,12 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
               {isUnlocking ? (
                 <>
                   <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>Descriptografando Cofre...</span>
+                  <span>Decrypting Vault...</span>
                 </>
               ) : (
                 <>
                   <KeyRound className="w-4 h-4" />
-                  <span>Desbloquear Cofre</span>
+                  <span>Unlock Vault</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
@@ -578,20 +578,20 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
               <button
                 type="button"
                 onClick={onSwitchToCreate}
-                className="flex items-center space-x-1.5 text-slate-400 hover:text-slate-200 transition-colors"
+                className="flex items-center space-x-1.5 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
               >
                 <PlusCircle className="w-3.5 h-3.5" />
-                <span>Criar Novo Cofre</span>
+                <span>Create New Vault</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setShowPurgeConfirm(true)}
-                className="flex items-center space-x-1 text-slate-500 hover:text-rose-400 transition-colors"
-                title="Apagar dados criptografados locais deste dispositivo"
+                className="flex items-center space-x-1 text-slate-500 hover:text-rose-400 transition-colors cursor-pointer"
+                title="Delete local encrypted data from this device"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                <span>Limpar Dados Locais</span>
+                <span>Clear Local Data</span>
               </button>
             </div>
           </div>
@@ -601,24 +601,24 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
         {showPurgeConfirm && (
           <div className="absolute inset-0 bg-slate-950/95 rounded-2xl p-6 flex flex-col justify-center items-center text-center z-20">
             <AlertCircle className="w-12 h-12 text-rose-500 mb-3" />
-            <h3 className="text-base font-bold text-white mb-1">Redefinir Cofre Local?</h3>
+            <h3 className="text-base font-bold text-white mb-1">Reset Local Vault?</h3>
             <p className="text-xs text-slate-400 mb-5 max-w-xs">
-              Isso apagará permanentemente as notas criptografadas armazenadas neste navegador. Suas notas no Supabase não serão afetadas caso você possua a frase de 12 palavras.
+              This will permanently delete all locally encrypted notes in this browser. Notes synced to Supabase will not be affected if you have your 12-word recovery phrase.
             </p>
             <div className="flex items-center space-x-3">
               <button
                 type="button"
                 onClick={() => setShowPurgeConfirm(false)}
-                className="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 text-xs hover:bg-slate-700"
+                className="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 text-xs hover:bg-slate-700 cursor-pointer"
               >
-                Cancelar
+                Cancel
               </button>
               <button
                 type="button"
                 onClick={handlePurgeVault}
-                className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold shadow-lg shadow-rose-600/20"
+                className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold shadow-lg shadow-rose-600/20 cursor-pointer"
               >
-                Sim, Apagar Tudo
+                Yes, Delete Everything
               </button>
             </div>
           </div>

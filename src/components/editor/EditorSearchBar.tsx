@@ -52,17 +52,17 @@ export const EditorSearchBar: React.FC<EditorSearchBarProps> = ({
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Buscar no texto da nota (Enter para avançar)..."
+          placeholder="Search in note text (Enter to advance)..."
           className="bg-transparent text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none w-full"
         />
         {query && (
           <span className="text-[11px] shrink-0 font-mono select-none">
             {totalMatches > 0 ? (
               <span className="text-indigo-400 font-semibold">
-                {currentIndex + 1} de {totalMatches}
+                {currentIndex + 1} of {totalMatches}
               </span>
             ) : (
-              <span className="text-rose-400">Nenhum resultado</span>
+              <span className="text-rose-400">No results</span>
             )}
           </span>
         )}
@@ -74,7 +74,7 @@ export const EditorSearchBar: React.FC<EditorSearchBarProps> = ({
           onClick={onPrev}
           disabled={totalMatches === 0}
           className="p-1 text-slate-400 hover:text-slate-100 hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-transparent rounded transition-colors cursor-pointer"
-          title="Ocorrência anterior (Shift+Enter)"
+          title="Previous match (Shift+Enter)"
         >
           <ChevronUp className="w-4 h-4" />
         </button>
@@ -83,7 +83,7 @@ export const EditorSearchBar: React.FC<EditorSearchBarProps> = ({
           onClick={onNext}
           disabled={totalMatches === 0}
           className="p-1 text-slate-400 hover:text-slate-100 hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-transparent rounded transition-colors cursor-pointer"
-          title="Próxima ocorrência (Enter)"
+          title="Next match (Enter)"
         >
           <ChevronDown className="w-4 h-4" />
         </button>
@@ -92,7 +92,7 @@ export const EditorSearchBar: React.FC<EditorSearchBarProps> = ({
           type="button"
           onClick={onClose}
           className="p-1 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded transition-colors cursor-pointer"
-          title="Fechar busca (Esc)"
+          title="Close search (Esc)"
         >
           <X className="w-4 h-4" />
         </button>

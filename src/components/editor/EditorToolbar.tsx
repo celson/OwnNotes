@@ -257,35 +257,42 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
                 ? 'bg-indigo-600 text-slate-950 border-indigo-500 font-bold shadow-sm shadow-indigo-600/30'
                 : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white hover:bg-slate-700'
             }`}
-            title="Buscar no texto (Ctrl+F)"
+            title="Search in note (Ctrl+F)"
           >
             <Search className={`w-3.5 h-3.5 ${isSearchOpen ? 'text-slate-950' : 'text-indigo-400'}`} />
-            <span>Buscar</span>
+            <span>Search</span>
           </button>
         )}
 
-        <button
-          type="button"
-          onClick={onToggleSourceMode}
-          className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
-            isSourceMode
-              ? 'bg-indigo-600/20 text-indigo-300 border-indigo-500/30'
-              : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white hover:bg-slate-700'
-          }`}
-          title={isSourceMode ? 'Switch to Rich WYSIWYG Editor' : 'Switch to Raw Markdown Source'}
-        >
-          {isSourceMode ? (
-            <>
-              <Eye className="w-3.5 h-3.5 text-indigo-400" />
-              <span>WYSIWYG</span>
-            </>
-          ) : (
-            <>
-              <FileCode2 className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Source</span>
-            </>
-          )}
-        </button>
+        {/* Editor Mode: Rich Text vs Markdown Toggle */}
+        <div className="flex items-center bg-slate-950/80 p-0.5 rounded-lg border border-slate-800 shrink-0">
+          <button
+            type="button"
+            onClick={() => isSourceMode && onToggleSourceMode()}
+            className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all cursor-pointer ${
+              !isSourceMode
+                ? 'bg-indigo-600 text-white shadow-xs font-semibold'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+            title="Rich Text Visual Editor"
+          >
+            <Eye className="w-3.5 h-3.5" />
+            <span>Rich Text</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => !isSourceMode && onToggleSourceMode()}
+            className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all cursor-pointer ${
+              isSourceMode
+                ? 'bg-indigo-600 text-white shadow-xs font-semibold'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+            title="Markdown Source Mode"
+          >
+            <FileCode2 className="w-3.5 h-3.5" />
+            <span>Markdown</span>
+          </button>
+        </div>
       </div>
     </div>
   );

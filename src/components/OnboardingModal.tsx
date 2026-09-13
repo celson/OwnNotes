@@ -202,7 +202,7 @@ ${phrase}
             type="button"
             disabled={isInitializing}
             onClick={handleInitializeVault}
-            className="w-full sm:w-auto flex items-center justify-center space-x-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl shadow-lg shadow-indigo-600/20 transition-all active:scale-95 cursor-pointer"
+            className="w-full sm:w-auto flex items-center justify-center space-x-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 text-sm font-bold rounded-xl shadow-lg shadow-indigo-600/20 transition-all active:scale-95 cursor-pointer"
           >
             <span>{isInitializing ? 'Encrypting...' : 'Open My Vault'}</span>
             <ArrowRight className="w-4 h-4" />

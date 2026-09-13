@@ -14,6 +14,7 @@ import { TableCell } from '@tiptap/extension-table-cell';
 import { Slice, Fragment } from '@tiptap/pm/model';
 import { createLowlight, common } from 'lowlight';
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
+import { SearchHighlightExtension } from './searchHighlightExtension.js';
 
 const lowlight = createLowlight(common);
 
@@ -67,6 +68,7 @@ export const RichMarkdownEditor: React.FC<RichMarkdownEditorProps> = ({
       TableRow,
       TableHeader,
       TableCell,
+      SearchHighlightExtension,
     ],
     content,
     editorProps: {

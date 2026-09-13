@@ -373,3 +373,18 @@
   -webkit-text-security: disc;
   text-security: disc;
 }
+
+/* In-Text Search Highlights (Catppuccin Mocha) */
+.search-result {
+  background-color: rgba(249, 226, 175, 0.35); /* Yellow #f9e2af with opacity */
+  border-radius: 2px;
+}
+
+.search-result-current {
+  background-color: #f9e2af !important; /* Solid Catppuccin Yellow */
+  color: #11111b !important; /* Catppuccin Crust for maximum contrast */
+  font-weight: 700;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px #fab387;
+}
+

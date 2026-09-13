@@ -16,6 +16,7 @@ import { EditorToolbar } from './editor/EditorToolbar.js';
 import { EditorSearchBar } from './editor/EditorSearchBar.js';
 import { RichMarkdownEditor } from './editor/RichMarkdownEditor.js';
 import { RawMarkdownEditor } from './editor/RawMarkdownEditor.js';
+import { searchHighlightPluginKey } from './editor/searchHighlightExtension.js';
 
 function stripMarkdown(md: string): string {
   if (!md) return '';
@@ -82,12 +83,22 @@ export const Editor: React.FC<EditorProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  const [hasNavigated, setHasNavigated] = useState(false);
+
   const jumpToMatch = (index: number, matchArray: { from: number; to: number }[]) => {
     if (matchArray.length === 0 || !matchArray[index]) return;
     const match = matchArray[index];
 
-    if (activeTipTapEditor && !isSourceMode) {
+    if (activeTipTapEditor && !isSourceMode && !activeTipTapEditor.isDestroyed) {
       try {
+        // Update active match index in decorations
+        activeTipTapEditor.view.dispatch(
+          activeTipTapEditor.state.tr.setMeta(searchHighlightPluginKey, {
+            currentIndex: index,
+          })
+        );
+
+        // Direct cursor / selection to the word in the note and scroll into view
         activeTipTapEditor
           .chain()
           .focus()
@@ -102,22 +113,35 @@ export const Editor: React.FC<EditorProps> = ({
       if (textarea) {
         textarea.focus();
         textarea.setSelectionRange(match.from, match.to);
+        const fullText = textarea.value;
+        const textUpToMatch = fullText.substring(0, match.from);
+        const lineBreaks = textUpToMatch.split('\n').length;
+        textarea.scrollTop = Math.max(0, (lineBreaks - 3) * 20);
       }
     }
   };
 
-  // Recompute matches on query, content, or mode change
+  // Recompute matches and update search highlight decorations without stealing focus
   React.useEffect(() => {
     if (!isSearchOpen || !searchQuery.trim() || !note) {
       setMatches([]);
       setCurrentMatchIndex(0);
+      setHasNavigated(false);
+      if (activeTipTapEditor && !activeTipTapEditor.isDestroyed) {
+        activeTipTapEditor.view.dispatch(
+          activeTipTapEditor.state.tr.setMeta(searchHighlightPluginKey, {
+            searchTerm: '',
+            currentIndex: 0,
+          })
+        );
+      }
       return;
     }
 
     const query = searchQuery.toLowerCase();
     const found: { from: number; to: number }[] = [];
 
-    if (activeTipTapEditor && !isSourceMode) {
+    if (activeTipTapEditor && !isSourceMode && !activeTipTapEditor.isDestroyed) {
       activeTipTapEditor.state.doc.descendants((node, pos) => {
         if (node.isText && node.text) {
           const text = node.text.toLowerCase();
@@ -131,6 +155,14 @@ export const Editor: React.FC<EditorProps> = ({
           }
         }
       });
+
+      // Highlight all matching occurrences in real time
+      activeTipTapEditor.view.dispatch(
+        activeTipTapEditor.state.tr.setMeta(searchHighlightPluginKey, {
+          searchTerm: searchQuery,
+          currentIndex: 0,
+        })
+      );
     } else {
       const bodyText = (note.body || '').toLowerCase();
       let idx = bodyText.indexOf(query);
@@ -145,13 +177,17 @@ export const Editor: React.FC<EditorProps> = ({
 
     setMatches(found);
     setCurrentMatchIndex(0);
-    if (found.length > 0) {
-      jumpToMatch(0, found);
-    }
+    setHasNavigated(false);
+    // Crucial: Do NOT call jumpToMatch here! User must be able to continue typing freely.
   }, [searchQuery, isSearchOpen, note?.body, isSourceMode, activeTipTapEditor]);
 
   const handleNextMatch = () => {
     if (matches.length === 0) return;
+    if (!hasNavigated) {
+      setHasNavigated(true);
+      jumpToMatch(0, matches);
+      return;
+    }
     const nextIdx = (currentMatchIndex + 1) % matches.length;
     setCurrentMatchIndex(nextIdx);
     jumpToMatch(nextIdx, matches);
@@ -159,6 +195,7 @@ export const Editor: React.FC<EditorProps> = ({
 
   const handlePrevMatch = () => {
     if (matches.length === 0) return;
+    setHasNavigated(true);
     const prevIdx = (currentMatchIndex - 1 + matches.length) % matches.length;
     setCurrentMatchIndex(prevIdx);
     jumpToMatch(prevIdx, matches);
@@ -332,6 +369,14 @@ export const Editor: React.FC<EditorProps> = ({
           onClose={() => {
             setIsSearchOpen(false);
             setSearchQuery('');
+            if (activeTipTapEditor && !activeTipTapEditor.isDestroyed) {
+              activeTipTapEditor.view.dispatch(
+                activeTipTapEditor.state.tr.setMeta(searchHighlightPluginKey, {
+                  searchTerm: '',
+                  currentIndex: 0,
+                })
+              );
+            }
           }}
         />
       )}

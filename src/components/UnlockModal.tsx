@@ -1,8 +1,9 @@
 import React, { useState, useRef } from 'react';
+import { Clipboard as CapClipboard } from '@capacitor/clipboard';
 import {
   Lock,
   KeyRound,
-  Clipboard,
+  Clipboard as ClipboardIcon,
   AlertCircle,
   ArrowRight,
   PlusCircle,
@@ -67,18 +68,73 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
     setRawTextInput(extracted.join(' '));
   };
 
-  // Fast paste from clipboard handler
+  // Fast paste from clipboard handler with multi-level fallback
   const handlePasteFullPhrase = async () => {
+    let text = '';
+
+    // 1. Try Capacitor native clipboard (works seamlessly in Android APK)
     try {
-      const text = await navigator.clipboard.readText();
-      if (text) {
-        const extracted = extractWords(text);
+      const capResult = await CapClipboard.read();
+      if (capResult && capResult.value) {
+        text = capResult.value;
+      }
+    } catch {
+      // Not in native app or plugin error, try browser API
+    }
+
+    // 2. Try browser clipboard API
+    if (!text && typeof navigator !== 'undefined' && navigator.clipboard?.readText) {
+      try {
+        text = await navigator.clipboard.readText();
+      } catch {
+        // Permission denied or blocked by browser
+      }
+    }
+
+    // 3. If valid text obtained
+    if (text && text.trim()) {
+      const extracted = extractWords(text);
+      if (extracted.length > 0) {
+        populateSlotsFromWords(extracted);
+        setErrorMessage(null);
+        setVaultMismatch(false);
+        return;
+      }
+    }
+
+    // 4. Fallback prompt if clipboard access is blocked by browser/OS policies
+    const promptText = window.prompt(
+      'Cole aqui sua frase de recuperação (as 12 palavras separadas por espaço):'
+    );
+    if (promptText && promptText.trim()) {
+      const extracted = extractWords(promptText);
+      if (extracted.length > 0) {
         populateSlotsFromWords(extracted);
         setErrorMessage(null);
         setVaultMismatch(false);
       }
-    } catch {
-      // Fallback if clipboard API permission denied
+    }
+  };
+
+  // Direct paste on any individual slot distributes words across slots
+  const handleSlotPaste = (index: number, e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pasted = e.clipboardData?.getData('text') || '';
+    if (!pasted) return;
+
+    const extracted = extractWords(pasted);
+    if (extracted.length > 1) {
+      populateSlotsFromWords(extracted);
+      setErrorMessage(null);
+      setVaultMismatch(false);
+    } else if (extracted.length === 1) {
+      const newSlots = [...wordSlots];
+      newSlots[index] = extracted[0];
+      setWordSlots(newSlots);
+      setRawTextInput(newSlots.filter(Boolean).join(' '));
+      if (index < 11) {
+        inputRefs.current[index + 1]?.focus();
+      }
     }
   };
 
@@ -330,7 +386,7 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
               className="flex items-center space-x-1 px-2.5 py-1 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 rounded-lg text-xs font-medium transition-colors"
               title="Colar frase completa da área de transferência"
             >
-              <Clipboard className="w-3.5 h-3.5" />
+              <ClipboardIcon className="w-3.5 h-3.5" />
               <span>Colar Tudo</span>
             </button>
 
@@ -378,6 +434,7 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
                       value={word}
                       onChange={(e) => handleSlotChange(i, e.target.value)}
                       onKeyDown={(e) => handleSlotKeyDown(i, e)}
+                      onPaste={(e) => handleSlotPaste(i, e)}
                       placeholder={`palavra ${i + 1}`}
                       autoComplete="off"
                       autoCorrect="off"

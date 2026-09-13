@@ -16,6 +16,33 @@ import { EditorToolbar } from './editor/EditorToolbar.js';
 import { RichMarkdownEditor } from './editor/RichMarkdownEditor.js';
 import { RawMarkdownEditor } from './editor/RawMarkdownEditor.js';
 
+function stripMarkdown(md: string): string {
+  if (!md) return '';
+  return md
+    // remove code fences: ```lang and ```
+    .replace(/^```[a-zA-Z0-9_-]*\s*$/gm, '')
+    // remove horizontal rules
+    .replace(/^[-*_]{3,}\s*$/gm, '')
+    // remove table separators |---|---|
+    .replace(/^[|\s:-]+$/gm, '')
+    // replace table pipes with space
+    .replace(/\|/g, ' ')
+    // remove header markers
+    .replace(/^#{1,6}\s+/gm, '')
+    // remove blockquote markers
+    .replace(/^>\s*/gm, '')
+    // remove list markers and task checkboxes (- [ ], * [x], 1.)
+    .replace(/^\s*([-*+]|\d+\.)(\s+\[[ xX]\])?\s+/gm, '')
+    // replace links and images [text](url) -> text
+    .replace(/!?\[([^\]]+)\]\([^)]+\)/g, '$1')
+    // remove bold/italic/strikethrough markers
+    .replace(/(\*\*|__|\*|_|~~)(.*?)\1/g, '$2')
+    // remove inline code `code` -> code
+    .replace(/`([^`]+)`/g, '$1')
+    // remove html tags
+    .replace(/<[^>]+>/g, '');
+}
+
 interface EditorProps {
   note: NoteItem | null;
   onUpdateNote: (updated: Partial<NoteItem>) => void;
@@ -92,8 +119,17 @@ export const Editor: React.FC<EditorProps> = ({
     onUpdateNote({ tags: note.tags.filter((t) => t !== tagToRemove) });
   };
 
-  const wordCount = note.body.trim() ? note.body.trim().split(/\s+/).length : 0;
-  const charCount = note.body.length;
+  const textContent =
+    activeTipTapEditor && !isSourceMode
+      ? activeTipTapEditor.getText({ blockSeparator: '\n' })
+      : stripMarkdown(note.body);
+
+  const cleanText = textContent.trim();
+  const wordTokens = cleanText
+    ? cleanText.split(/\s+/).filter((w) => /\p{L}|\p{N}/u.test(w))
+    : [];
+  const wordCount = wordTokens.length;
+  const charCount = cleanText.length;
 
   return (
     <main className="flex-1 flex flex-col bg-slate-950 overflow-hidden">
@@ -244,7 +280,7 @@ export const Editor: React.FC<EditorProps> = ({
       {/* Footer Info */}
       <div className="h-8 border-t border-slate-800/60 px-6 flex items-center justify-between text-[11px] text-slate-500 shrink-0 bg-slate-950">
         <div>
-          {wordCount} words • {charCount} characters
+          {wordCount} {wordCount === 1 ? 'word' : 'words'} • {charCount} {charCount === 1 ? 'character' : 'characters'}
         </div>
         <div>
           Last updated: {new Date(note.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">OwnNotes</string>
+    <string name="title_activity_main">OwnNotes</string>
+    <string name="package_name">com.ownnotes.app</string>
+    <string name="custom_url_scheme">com.ownnotes.app</string>
+</resources>

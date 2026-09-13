@@ -117,7 +117,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onNewNote();
               if (isOpenMobile) onCloseMobile();
             }}
-            className="w-full flex items-center justify-center space-x-2 py-2 px-3 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl shadow-md shadow-indigo-600/20 transition-all active:scale-95 cursor-pointer"
+            className="w-full flex items-center justify-center space-x-2 py-2 px-3 bg-indigo-600 hover:bg-indigo-500 text-slate-950 text-xs font-bold rounded-xl shadow-md shadow-indigo-600/20 transition-all active:scale-95 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>New Encrypted Note</span>

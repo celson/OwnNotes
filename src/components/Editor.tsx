@@ -172,7 +172,7 @@ export const Editor: React.FC<EditorProps> = ({
 
   if (!note) {
     return (
-      <main className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-slate-950">
+      <main className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-ctp-base">
         <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 mb-4">
           <Shield className="w-7 h-7" />
         </div>
@@ -186,7 +186,7 @@ export const Editor: React.FC<EditorProps> = ({
           {onNewNote && (
             <button
               onClick={onNewNote}
-              className="flex items-center space-x-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl shadow-md shadow-indigo-600/20 transition-all active:scale-95 cursor-pointer"
+              className="flex items-center space-x-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-slate-950 text-xs font-bold rounded-xl shadow-md shadow-indigo-600/20 transition-all active:scale-95 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>New Encrypted Note</span>
@@ -231,9 +231,9 @@ export const Editor: React.FC<EditorProps> = ({
   const charCount = cleanText.length;
 
   return (
-    <main className="flex-1 flex flex-col bg-slate-950 overflow-hidden">
+    <main className="flex-1 flex flex-col bg-ctp-base overflow-hidden">
       {/* Editor Header / Action Bar */}
-      <div className="h-12 border-b border-slate-800/80 px-4 flex items-center justify-between shrink-0 bg-slate-950/50">
+      <div className="h-12 border-b border-slate-800/80 px-4 flex items-center justify-between shrink-0 bg-ctp-base/50">
         <div className="flex items-center space-x-2">
           <button
             onClick={onToggleMobileSidebar}
@@ -395,7 +395,7 @@ export const Editor: React.FC<EditorProps> = ({
       </div>
 
       {/* Footer Info */}
-      <div className="h-8 border-t border-slate-800/60 px-6 flex items-center justify-between text-[11px] text-slate-500 shrink-0 bg-slate-950">
+      <div className="h-8 border-t border-slate-800/60 px-6 flex items-center justify-between text-[11px] text-slate-500 shrink-0 bg-ctp-base">
         <div>
           {wordCount} {wordCount === 1 ? 'word' : 'words'} • {charCount} {charCount === 1 ? 'character' : 'characters'}
         </div>

@@ -14,8 +14,8 @@ export default defineConfig({
         name: 'OwnNotes',
         short_name: 'OwnNotes',
         description: 'Zero-Knowledge Encrypted Notes & Vault. Your phrase is your key.',
-        theme_color: '#0f172a',
-        background_color: '#0f172a',
+        theme_color: '#1e1e2e',
+        background_color: '#1e1e2e',
         display: 'standalone',
         icons: [
           {

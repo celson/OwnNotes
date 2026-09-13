@@ -254,12 +254,12 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
             onClick={onToggleSearch}
             className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
               isSearchOpen
-                ? 'bg-indigo-600 text-white border-indigo-500 shadow-sm shadow-indigo-600/30'
+                ? 'bg-indigo-600 text-slate-950 border-indigo-500 font-bold shadow-sm shadow-indigo-600/30'
                 : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white hover:bg-slate-700'
             }`}
             title="Buscar no texto (Ctrl+F)"
           >
-            <Search className="w-3.5 h-3.5 text-indigo-400" />
+            <Search className={`w-3.5 h-3.5 ${isSearchOpen ? 'text-slate-950' : 'text-indigo-400'}`} />
             <span>Buscar</span>
           </button>
         )}

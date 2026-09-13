@@ -192,7 +192,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             onClick={() => setActiveTab('security')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-colors ${
               activeTab === 'security'
-                ? 'bg-indigo-600 text-white'
+                ? 'bg-indigo-600 text-slate-950 font-bold'
                 : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
             }`}
           >
@@ -205,7 +205,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             onClick={() => setActiveTab('supabase')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-colors ${
               activeTab === 'supabase'
-                ? 'bg-indigo-600 text-white'
+                ? 'bg-indigo-600 text-slate-950 font-bold'
                 : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
             }`}
           >
@@ -409,7 +409,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   type="button"
                   onClick={handleSaveAndTestSupabase}
                   disabled={isTesting}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-semibold rounded-lg shadow-sm transition-all"
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-slate-950 font-bold rounded-lg shadow-sm transition-all"
                 >
                   {isTesting ? 'Connecting...' : 'Save & Connect'}
                 </button>

@@ -294,7 +294,7 @@ Enjoy private note taking!
   const selectedNote = notes.find((n) => n.id === selectedNoteId) || null;
 
   return (
-    <div className="h-full flex flex-col bg-slate-950 text-slate-100 antialiased overflow-hidden font-sans">
+    <div className="h-full flex flex-col bg-ctp-base text-ctp-text antialiased overflow-hidden font-sans">
       {/* Top Security Header */}
       <SecurityHeader
         onLock={handleLockVault}

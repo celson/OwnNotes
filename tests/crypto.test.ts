@@ -14,6 +14,8 @@ import {
   bytesToHex,
   encodeUtf8,
   generateUUID,
+  normalizePhrase,
+  getPhraseValidationDetails,
 } from '../src/crypto/index.js';
 import type { NoteItem } from '../src/crypto/types.js';
 
@@ -153,5 +155,32 @@ describe('OwnNotes Crypto Core', () => {
     expect(id1).not.toBe(id2);
     expect(id1).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
     expect(id2).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+  });
+
+  it('normalizes phrases with numbering, commas, and formatting', () => {
+    const raw = '1. abandon, 2. abandon, 3. abandon, 4. abandon, 5. abandon, 6. abandon, 7. abandon, 8. abandon, 9. abandon, 10. abandon, 11. abandon, 12. about';
+    const normalized = normalizePhrase(raw);
+    expect(normalized).toBe('abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about');
+    expect(isValidPhrase(normalized)).toBe(true);
+  });
+
+  it('provides detailed phrase validation diagnostics', () => {
+    // Valid phrase
+    const d1 = getPhraseValidationDetails('abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about');
+    expect(d1.isValid).toBe(true);
+    expect(d1.invalidWords).toEqual([]);
+    expect(d1.hasChecksumError).toBe(false);
+    expect(d1.wordCount).toBe(12);
+
+    // Typo word
+    const d2 = getPhraseValidationDetails('abandon abanndon abandon abandon abandon abandon abandon abandon abandon abandon abandon about');
+    expect(d2.isValid).toBe(false);
+    expect(d2.invalidWords).toEqual(['abanndon']);
+
+    // Checksum error
+    const d3 = getPhraseValidationDetails('abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon');
+    expect(d3.isValid).toBe(false);
+    expect(d3.invalidWords).toEqual([]);
+    expect(d3.hasChecksumError).toBe(true);
   });
 });

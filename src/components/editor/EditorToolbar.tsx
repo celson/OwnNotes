@@ -264,35 +264,29 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
           </button>
         )}
 
-        {/* Editor Mode: Rich Text vs Markdown Toggle */}
-        <div className="flex items-center bg-slate-950/80 p-0.5 rounded-lg border border-slate-800 shrink-0">
-          <button
-            type="button"
-            onClick={() => isSourceMode && onToggleSourceMode()}
-            className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all cursor-pointer ${
-              !isSourceMode
-                ? 'bg-indigo-600 text-white shadow-xs font-semibold'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-            title="Rich Text Visual Editor"
-          >
-            <Eye className="w-3.5 h-3.5" />
-            <span>Rich Text</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => !isSourceMode && onToggleSourceMode()}
-            className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all cursor-pointer ${
-              isSourceMode
-                ? 'bg-indigo-600 text-white shadow-xs font-semibold'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-            title="Markdown Source Mode"
-          >
-            <FileCode2 className="w-3.5 h-3.5" />
-            <span>Markdown</span>
-          </button>
-        </div>
+        {/* Editor Mode: Single Button toggling between Source and MarkDown */}
+        <button
+          type="button"
+          onClick={onToggleSourceMode}
+          className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
+            isSourceMode
+              ? 'bg-indigo-600/20 text-indigo-300 border-indigo-500/30'
+              : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white hover:bg-slate-700'
+          }`}
+          title={isSourceMode ? 'Switch to Rich Text Editor' : 'Switch to Raw Markdown Source'}
+        >
+          {isSourceMode ? (
+            <>
+              <Eye className="w-3.5 h-3.5 text-indigo-400" />
+              <span>MarkDown</span>
+            </>
+          ) : (
+            <>
+              <FileCode2 className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Source</span>
+            </>
+          )}
+        </button>
       </div>
     </div>
   );

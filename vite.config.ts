@@ -32,8 +32,14 @@ export default defineConfig({
       }
     })
   ],
+  // Tauri expects clearScreen: false to not hide Rust compile errors
+  clearScreen: false,
   server: {
     port: 5173,
-    host: true
+    strictPort: true,
+    host: true,
+    watch: {
+      ignored: ['**/src-tauri/**']
+    }
   }
 });

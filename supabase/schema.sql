@@ -77,6 +77,25 @@ drop policy if exists "OwnNotes owners insert" on public.ownnotes_records;
 drop policy if exists "OwnNotes owners update" on public.ownnotes_records;
 drop policy if exists "OwnNotes owners delete" on public.ownnotes_records;
 
+-- Helper to check whether the current authenticated session owns the vault.
+-- Runs as security definer so it can inspect vault_owners without granting
+-- direct SELECT permissions on vault_owners to the authenticated role.
+create or replace function public.is_vault_owner(p_vault_id text)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from public.vault_owners
+    where vault_id = p_vault_id and owner_id = auth.uid()
+  );
+$$;
+
+revoke all on function public.is_vault_owner(text) from public, anon, authenticated;
+grant execute on function public.is_vault_owner(text) to authenticated;
+
 -- Only sessions that have successfully called claim_vault() for a given
 -- vault_id may read or write that vault's rows. No policy targets the
 -- `anon` role: an authenticated session (anonymous sign-in is sufficient)
@@ -85,41 +104,26 @@ create policy "OwnNotes owners select"
   on public.ownnotes_records
   for select
   to authenticated
-  using (exists (
-    select 1 from public.vault_owners vo
-    where vo.vault_id = ownnotes_records.vault_id and vo.owner_id = auth.uid()
-  ));
+  using (public.is_vault_owner(vault_id));
 
 create policy "OwnNotes owners insert"
   on public.ownnotes_records
   for insert
   to authenticated
-  with check (exists (
-    select 1 from public.vault_owners vo
-    where vo.vault_id = ownnotes_records.vault_id and vo.owner_id = auth.uid()
-  ));
+  with check (public.is_vault_owner(vault_id));
 
 create policy "OwnNotes owners update"
   on public.ownnotes_records
   for update
   to authenticated
-  using (exists (
-    select 1 from public.vault_owners vo
-    where vo.vault_id = ownnotes_records.vault_id and vo.owner_id = auth.uid()
-  ))
-  with check (exists (
-    select 1 from public.vault_owners vo
-    where vo.vault_id = ownnotes_records.vault_id and vo.owner_id = auth.uid()
-  ));
+  using (public.is_vault_owner(vault_id))
+  with check (public.is_vault_owner(vault_id));
 
 create policy "OwnNotes owners delete"
   on public.ownnotes_records
   for delete
   to authenticated
-  using (exists (
-    select 1 from public.vault_owners vo
-    where vo.vault_id = ownnotes_records.vault_id and vo.owner_id = auth.uid()
-  ));
+  using (public.is_vault_owner(vault_id));
 
 -- Claims (or re-attaches this session to) a vault_id by proving knowledge
 -- of its HKDF-derived proof secret. The first successful call for a

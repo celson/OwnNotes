@@ -51,6 +51,8 @@ export const App: React.FC = () => {
       // Evict decrypted plaintext from React state immediately
       setNotes([]);
       setSelectedNoteId(null);
+      // The sync proof is gone now; force re-claim on next unlock/sync.
+      supabaseSync.resetClaim();
     });
 
     const unregUnlock = vaultKeyManager.onUnlock(() => {

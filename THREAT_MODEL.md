@@ -28,17 +28,17 @@ From the 64-byte BIP-39 seed, HKDF-SHA256 generates distinct subkeys:
                   [ 64-Byte Master Seed ]
                            │
                HKDF-SHA256 (Salt: undefined)
-             ┌─────────────┼─────────────┐
-             │             │             │
-    Info: "ownnotes-   Info: "ownnotes-  Info: "ownnotes-
-       vault-v1"         verifier-v1"       backup-v1"
-             │             │             │
-       [ 32-Byte ]    [ 32-Byte ]   [ 32-Byte ]
-       Vault Key      Verifier Key   Backup Key
-      (XChaCha20)     (Challenge)    (Exports)
+     ┌─────────────┬─────────────┬─────────────┬─────────────┐
+     │             │             │             │             │
+Info: "ownnotes-  "ownnotes-   "ownnotes-   "ownnotes-    "ownnotes-
+   vault-v1"     verifier-v1"   backup-v1"  identity-v1"  sync-proof-v1"
+     │             │             │             │             │
+[ 32-Byte ]   [ 32-Byte ]   [ 32-Byte ]   [ 32-Byte ]   [ 32-Byte ]
+ Vault Key    Verifier Key  Backup Key     Vault ID      Sync Proof
+(XChaCha20)   (Challenge)    (Exports)   (Sync routing) (Claim secret)
 ```
 
-No two functions share cryptographic key material. Exposing the verifier challenge hash reveals zero information about the vault key or the master seed.
+No two functions share cryptographic key material. Exposing the verifier challenge hash reveals zero information about the vault key or the master seed. The same holds for the Vault ID (a public, non-secret routing pseudonym) and the Sync Proof (a secret that is never transmitted except once, to the `claim_vault` RPC — see Section 5).
 
 ---
 
@@ -107,3 +107,16 @@ Notice:
    - `activeKey.fill(0)` is executed.
    - Decrypted notes are evicted from React state.
    - State returns to LOCKED.
+
+---
+
+## 5. Cloud Sync Access Control (Supabase)
+
+The Vault ID (`INFO_IDENTITY`) is a public routing pseudonym: it identifies which rows belong to a vault, but knowledge of it grants **no** access on its own. Access to `public.ownnotes_records` is enforced entirely server-side by Postgres Row Level Security, gated behind two additional layers (`supabase/schema.sql`):
+
+1. **Authentication.** Every client must hold an authenticated Supabase session (anonymous sign-in is sufficient — no email/password is collected). Unauthenticated (`anon`) requests are rejected by RLS for every operation on `ownnotes_records`.
+2. **Ownership claim.** A session becomes an owner of a `vault_id` only by calling the `claim_vault(vault_id, proof)` RPC with the correct Sync Proof (`INFO_SYNC_PROOF`) — a subkey derived from the same 12-word phrase, but domain-separated from the vault key, verifier key, and vault ID. The first caller to present a given `vault_id`'s proof fixes it (stored only as a bcrypt hash in `vault_secrets`); every subsequent call, from any device, must match that hash or is rejected. Successful claims are recorded in `vault_owners`, which is exactly what the RLS policies on `ownnotes_records` check against.
+
+This means an attacker who obtains the (necessarily public) Supabase anon key, or who observes/enumerates a `vault_id`, still cannot read, write, or delete that vault's rows without also knowing the 12-word phrase the Sync Proof is derived from. Realtime subscriptions are subject to the same RLS policies, so a session only ever receives change events for vault IDs it has claimed.
+
+**What this does not protect against:** if an attacker already possesses the 12-word phrase, they possess everything (this is unchanged from Section 1 — the phrase is the sole root of trust). Claim-on-first-use also means that for a *brand new* `vault_id` that has never been claimed, whichever session presents the correct proof first wins the claim; this is not a practical race in normal use since the Sync Proof space is 256 bits and only derivable from the phrase.

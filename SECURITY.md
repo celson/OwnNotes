@@ -15,6 +15,7 @@ OwnNotes is built around one fundamental rule: **the user is the sole custodian 
    - Note titles, bodies, tags, categories, and attributes are entirely inside the ciphertext.
 4. **Secure In-Memory Clearing**: When locking, the key buffer is filled with zeroes (`activeKey.fill(0)`) to mitigate memory exposure.
 5. **No Network Leakage**: In local-only mode, no network requests are dispatched. When remote sync adapters are enabled, only ciphertext and nonces ever leave the device.
+6. **Server-Enforced Vault Isolation**: Cloud sync access is gated by Postgres Row Level Security bound to a per-vault secret (`claim_vault`, see `THREAT_MODEL.md` §5) derived from your phrase — the Supabase anon key and vault ID alone grant no read or write access to your notes.
 
 ### What OwnNotes Cannot Protect Against
 - **Compromised Operating System / Keyloggers**: If malware or spyware runs on your device, it can monitor keystrokes while you type your 12-word phrase or capture the screen while decrypted notes are rendered.

@@ -8,7 +8,7 @@
  *    mathematically independent of the vault encryption key.
  */
 
-import { getSupabaseClient } from './client.js';
+import { getSupabaseClient, ensureAuthenticated } from './client.js';
 import { vaultKeyManager } from '../vaultKeyManager.js';
 import { storageAdapter } from '../storage/indexedDbAdapter.js';
 import type { EncryptedSerializedRecord, SupabaseNoteRow } from '../../crypto/types.js';
@@ -20,6 +20,42 @@ class SupabaseSyncService {
   private lastError: string | null = null;
   private statusListeners = new Set<(status: SyncStatus) => void>();
   private activeChannel: ReturnType<NonNullable<ReturnType<typeof getSupabaseClient>>['channel']> | null = null;
+  private claimedVaultId: string | null = null;
+
+  /**
+   * Ensures this device holds an authenticated session and has claimed/attached
+   * itself as an owner of `vaultId` (via the `claim_vault` RPC). Row Level Security
+   * on `ownnotes_records` rejects every read/write until this succeeds, so a stale
+   * or missing claim surfaces as an explicit error rather than silently no-op'ing.
+   */
+  private async ensureClaimed(
+    client: NonNullable<ReturnType<typeof getSupabaseClient>>,
+    vaultId: string
+  ): Promise<boolean> {
+    if (this.claimedVaultId === vaultId) return true;
+
+    const syncProof = vaultKeyManager.getSyncProof();
+    if (!syncProof) {
+      this.setStatus('error', 'Vault is locked; cannot claim sync ownership.');
+      return false;
+    }
+
+    const authed = await ensureAuthenticated(client);
+    if (!authed) {
+      this.setStatus('error', 'Could not establish an authenticated Supabase session.');
+      return false;
+    }
+
+    const { error } = await client.rpc('claim_vault', { p_vault_id: vaultId, p_proof: syncProof });
+    if (error) {
+      console.error('claim_vault RPC failed:', error);
+      this.setStatus('error', `Vault ownership claim failed: ${error.message}`);
+      return false;
+    }
+
+    this.claimedVaultId = vaultId;
+    return true;
+  }
 
   public getStatus(): SyncStatus {
     return this.syncStatus;
@@ -81,6 +117,7 @@ class SupabaseSyncService {
     const vaultId = vaultKeyManager.getVaultId();
 
     if (!client || !vaultId) return;
+    if (!(await this.ensureClaimed(client, vaultId))) return;
 
     try {
       const row: SupabaseNoteRow = {
@@ -116,6 +153,8 @@ class SupabaseSyncService {
     }
 
     this.setStatus('syncing');
+
+    if (!(await this.ensureClaimed(client, vaultId))) return;
 
     try {
       // 1. Fetch all remote records for this vault
@@ -231,36 +270,57 @@ class SupabaseSyncService {
       this.activeChannel = null;
     }
 
-    try {
-      const channel = client
-        .channel(`vault-${vaultId}`)
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'ownnotes_records',
-            filter: `vault_id=eq.${vaultId}`,
-          },
-          () => {
-            // Trigger sync sweep on incoming remote changes
-            this.syncAll(onRemoteChange);
-          }
-        )
-        .subscribe();
+    let cancelled = false;
 
-      this.activeChannel = channel;
+    void (async () => {
+      const claimed = await this.ensureClaimed(client, vaultId);
+      if (!claimed || cancelled) return;
 
-      return () => {
-        if (this.activeChannel) {
-          client.removeChannel(this.activeChannel);
-          this.activeChannel = null;
+      try {
+        const channel = client
+          .channel(`vault-${vaultId}`)
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'ownnotes_records',
+              filter: `vault_id=eq.${vaultId}`,
+            },
+            () => {
+              // Trigger sync sweep on incoming remote changes
+              this.syncAll(onRemoteChange);
+            }
+          )
+          .subscribe();
+
+        if (cancelled) {
+          client.removeChannel(channel);
+          return;
         }
-      };
-    } catch (err) {
-      console.error('Failed to subscribe to Supabase Realtime:', err);
-      return () => {};
-    }
+
+        this.activeChannel = channel;
+      } catch (err) {
+        console.error('Failed to subscribe to Supabase Realtime:', err);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (this.activeChannel) {
+        client.removeChannel(this.activeChannel);
+        this.activeChannel = null;
+      }
+    };
+  }
+
+  /**
+   * Forgets the current claim cache. Call this on vault lock or when the
+   * Supabase configuration changes, so the next sync re-authenticates and
+   * re-claims against the (possibly different) vault/project.
+   */
+  public resetClaim(): void {
+    this.claimedVaultId = null;
   }
 }
 

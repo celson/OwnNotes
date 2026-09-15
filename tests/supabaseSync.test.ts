@@ -33,8 +33,25 @@ describe('Supabase Vault Identity & Sync Primitives', () => {
     expect(keys.vaultId).not.toBe(bytesToHex(keys.vaultKey));
     expect(keys.vaultId).not.toBe(bytesToHex(keys.verifierKey));
     expect(keys.vaultId).not.toBe(bytesToHex(keys.backupKey));
+    expect(keys.vaultId).not.toBe(keys.syncProof);
 
     wipe(seed);
+  });
+
+  it('derives a deterministic, domain-separated sync proof used only to claim vault ownership', () => {
+    const phrase = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+    const seed1 = phraseToSeed(phrase);
+    const seed2 = phraseToSeed(phrase);
+
+    const keys1 = deriveAllKeys(seed1);
+    const keys2 = deriveAllKeys(seed2);
+
+    expect(keys1.syncProof.length).toBe(64); // 32 bytes in hex
+    expect(keys1.syncProof).toBe(keys2.syncProof);
+    expect(keys1.syncProof).not.toBe(keys1.vaultId);
+
+    wipe(seed1);
+    wipe(seed2);
   });
 
   it('generates distinct vault IDs for different mnemonic phrases', () => {

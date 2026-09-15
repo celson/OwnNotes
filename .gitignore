@@ -27,3 +27,5 @@ dist-apk
 *.njsproj
 *.sln
 *.sw?
+.mcp.json
+

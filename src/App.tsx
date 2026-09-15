@@ -20,6 +20,8 @@ export const App: React.FC = () => {
   // Decrypted note items held in volatile React state
   const [notes, setNotes] = useState<NoteItem[]>([]);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  const selectedNoteIdRef = useRef<string | null>(null);
+  selectedNoteIdRef.current = selectedNoteId;
 
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState('');
@@ -134,23 +136,27 @@ Enjoy private note taking!
       decryptedList.sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0) || b.updatedAt - a.updatedAt);
 
       setNotes((prevNotes) => {
-        // Retain any pending or in-memory notes that haven't landed in storage yet
-        const merged = [...decryptedList];
-        for (const p of prevNotes) {
-          if (!merged.some((m) => m.id === p.id)) {
-            merged.unshift(p);
+        const currentSelectedId = selectedNoteIdRef.current;
+        const activeDraft = currentSelectedId ? prevNotes.find((p) => p.id === currentSelectedId) : null;
+
+        // The stored decryptedList is the source of truth; never resurrect deleted notes from prevNotes!
+        return decryptedList.map((n) => {
+          if (activeDraft && n.id === activeDraft.id && saveTimeoutRef.current) {
+            // Retain active unpersisted typing draft while user is editing
+            return activeDraft;
           }
-        }
-        merged.sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0) || b.updatedAt - a.updatedAt);
-        return merged;
+          return n;
+        });
       });
 
       setSelectedNoteId((prevId) => {
-        // Preserve active note selection! Do not jump back to pinned note on sync
-        if (prevId) {
+        // If the current note still exists in storage, preserve selection
+        if (prevId && decryptedList.some((n) => n.id === prevId)) {
           return prevId;
         }
-        return decryptedList.length > 0 ? decryptedList[0].id : null;
+        // If the selected note was deleted remotely, select the first visible non-trashed note, or first note, or null
+        const firstVisible = decryptedList.find((n) => !n.isTrashed);
+        return firstVisible ? firstVisible.id : (decryptedList.length > 0 ? decryptedList[0].id : null);
       });
     } catch (err) {
       console.error('Error loading encrypted notes:', err);
@@ -262,11 +268,28 @@ Enjoy private note taking!
         );
       }
       setNotes((prev) => prev.filter((n) => n.id !== id));
-      if (selectedNoteId === id) {
-        setSelectedNoteId(null);
-      }
+      setSelectedNoteId((prevId) => {
+        if (prevId === id) {
+          const remaining = notes.filter((n) => n.id !== id && !n.isTrashed);
+          return remaining.length > 0 ? remaining[0].id : null;
+        }
+        return prevId;
+      });
     } else {
-      handleUpdateNote({ isTrashed: true });
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+      }
+      const noteToTrash = notes.find((n) => n.id === id);
+      if (noteToTrash) {
+        const updated = { ...noteToTrash, isTrashed: true, updatedAt: Date.now() };
+        setNotes((prev) => prev.map((n) => (n.id === id ? updated : n)));
+        await persistNoteEncrypted(updated);
+        if (activeFilter !== 'trash') {
+          const remaining = notes.filter((n) => n.id !== id && !n.isTrashed);
+          setSelectedNoteId(remaining.length > 0 ? remaining[0].id : null);
+        }
+      }
     }
   };
 
@@ -290,6 +313,7 @@ Enjoy private note taking!
   const handleManualSync = async () => {
     if (isSupabaseConfigured()) {
       await supabaseSync.syncAll(loadDecryptedNotes);
+      await loadDecryptedNotes();
     }
   };
 

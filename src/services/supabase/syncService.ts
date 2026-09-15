@@ -175,8 +175,6 @@ class SupabaseSyncService {
         localMap.set(rec.id, rec);
       }
 
-      let hasChanges = false;
-
       // 3. Process remote rows into local database
       if (remoteRows && remoteRows.length > 0) {
         for (const r of remoteRows as SupabaseNoteRow[]) {
@@ -185,7 +183,6 @@ class SupabaseSyncService {
           if (r.is_deleted) {
             if (local) {
               await storageAdapter.deleteEncrypted(r.id);
-              hasChanges = true;
             }
             // Auto-clean any residual ciphertext/nonce on deleted tombstones in cloud
             if (r.nonce || r.ciphertext) {
@@ -209,7 +206,6 @@ class SupabaseSyncService {
                 createdAt: r.created_at,
                 updatedAt: r.updated_at,
               });
-              hasChanges = true;
             }
           }
         }
@@ -247,7 +243,7 @@ class SupabaseSyncService {
       }
 
       this.setStatus('synced');
-      if (hasChanges && onRemoteChanges) {
+      if (onRemoteChanges) {
         onRemoteChanges();
       }
     } catch (err: unknown) {

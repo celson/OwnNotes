@@ -69,4 +69,11 @@ describe('Supabase Vault Identity & Sync Primitives', () => {
     wipe(seed1);
     wipe(seed2);
   });
+
+  it('fails safely when purgeRemoteVault is called without client or active vault', async () => {
+    const { supabaseSync } = await import('../src/services/supabase/syncService.js');
+    const res = await supabaseSync.purgeRemoteVault();
+    expect(res.success).toBe(false);
+    expect(res.message).toBeDefined();
+  });
 });

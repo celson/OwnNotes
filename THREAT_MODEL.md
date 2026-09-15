@@ -67,12 +67,6 @@ interface NotePayload {
   isFavorite?: boolean;
   isPinned?: boolean;
   isTrashed?: boolean;
-  attachments?: Array<{
-    name: string;
-    type: string;
-    size: number;
-    dataUrl: string;
-  }>;
 }
 ```
 

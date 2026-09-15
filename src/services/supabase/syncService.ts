@@ -311,6 +311,39 @@ class SupabaseSyncService {
   }
 
   /**
+   * Permanently purges all remote encrypted records belonging to this vault from Supabase.
+   */
+  public async purgeRemoteVault(): Promise<{ success: boolean; message?: string }> {
+    const client = getSupabaseClient();
+    const vaultId = vaultKeyManager.getVaultId();
+
+    if (!client || !vaultId) {
+      return { success: false, message: 'Supabase client or vault ID not available.' };
+    }
+
+    if (!(await this.ensureClaimed(client, vaultId))) {
+      return { success: false, message: 'Could not prove vault ownership to authorize cloud purge.' };
+    }
+
+    try {
+      const { error } = await client
+        .from('ownnotes_records')
+        .delete()
+        .eq('vault_id', vaultId);
+
+      if (error) {
+        console.error('Failed to purge remote vault notes:', error);
+        return { success: false, message: error.message };
+      }
+
+      return { success: true };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { success: false, message: msg };
+    }
+  }
+
+  /**
    * Forgets the current claim cache. Call this on vault lock or when the
    * Supabase configuration changes, so the next sync re-authenticates and
    * re-claims against the (possibly different) vault/project.

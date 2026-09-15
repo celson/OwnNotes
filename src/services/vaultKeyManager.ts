@@ -13,6 +13,7 @@ type Listener = () => void;
 
 class VaultKeyManager {
   private activeVaultKey: Uint8Array | null = null;
+  private activeBackupKey: Uint8Array | null = null;
   private activeVaultId: string | null = null;
   private activeSyncProof: string | null = null;
   private autoLockMinutes = 15; // default: 15 minutes
@@ -36,6 +37,7 @@ class VaultKeyManager {
     const keys = deriveAllKeys(seed);
 
     this.activeVaultKey = keys.vaultKey;
+    this.activeBackupKey = keys.backupKey;
     this.activeVaultId = keys.vaultId;
     this.activeSyncProof = keys.syncProof;
 
@@ -60,6 +62,10 @@ class VaultKeyManager {
     if (this.activeVaultKey) {
       wipe(this.activeVaultKey);
       this.activeVaultKey = null;
+    }
+    if (this.activeBackupKey) {
+      wipe(this.activeBackupKey);
+      this.activeBackupKey = null;
     }
     this.activeVaultId = null;
     this.activeSyncProof = null;
@@ -102,6 +108,17 @@ class VaultKeyManager {
       throw new Error('Vault is locked. No encryption key available in memory.');
     }
     return new Uint8Array(this.activeVaultKey);
+  }
+
+  /**
+   * Returns a temporary defensive copy of the active backup key for HMAC verification/generation.
+   * Callers must wipe their copy once finished with the operation.
+   */
+  public getBackupKeyCopy(): Uint8Array {
+    if (!this.isUnlocked() || !this.activeBackupKey) {
+      throw new Error('Vault is locked. No backup key available in memory.');
+    }
+    return new Uint8Array(this.activeBackupKey);
   }
 
   public getAutoLockMinutes(): number {

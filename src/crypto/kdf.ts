@@ -92,3 +92,10 @@ export function checkVerifierToken(verifierKey: Uint8Array, storedTokenHex: stri
     return false;
   }
 }
+
+/**
+ * Computes HMAC-SHA256 of a message under a key.
+ */
+export function computeHmacSha256(key: Uint8Array, message: Uint8Array): Uint8Array {
+  return hmac(sha256, key, message);
+}

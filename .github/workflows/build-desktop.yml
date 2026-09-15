@@ -94,8 +94,6 @@ jobs:
 
       - name: Fix AppImage Wayland Compatibility (Linux only)
         if: matrix.platform == 'ubuntu-22.04'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           APPIMAGE=$(find src-tauri/target/release/bundle/appimage -name '*.AppImage' | head -1)
           if [ -z "$APPIMAGE" ] || [ ! -f "$APPIMAGE" ]; then
@@ -112,15 +110,23 @@ jobs:
           echo "Removing conflicting bundled Wayland libraries..."
           rm -fv squashfs-root/usr/lib/libwayland-*.so*
 
-          echo "Downloading appimagetool..."
-          wget -qO appimagetool https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          echo "Downloading and verifying appimagetool 1.9.1..."
+          wget -qO appimagetool https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage
+          EXPECTED_SHA="ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0"
+          echo "$EXPECTED_SHA  appimagetool" | sha256sum -c -
           chmod +x appimagetool
 
           echo "Repacking AppImage..."
           ARCH=x86_64 ./appimagetool --appimage-extract-and-run squashfs-root "$APPIMAGE"
           rm -rf squashfs-root appimagetool
 
-          if [ "${{ startsWith(github.ref, 'refs/tags/v') }}" = "true" ]; then
+      - name: Upload Patched AppImage to Release
+        if: matrix.platform == 'ubuntu-22.04' && startsWith(github.ref, 'refs/tags/v')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          APPIMAGE=$(find src-tauri/target/release/bundle/appimage -name '*.AppImage' | head -1)
+          if [ -n "$APPIMAGE" ] && [ -f "$APPIMAGE" ]; then
             echo "Re-uploading patched AppImage to release ${{ github.ref_name }}..."
             gh release upload "${{ github.ref_name }}" "$APPIMAGE" --clobber -R "${{ github.repository }}"
           fi

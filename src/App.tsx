@@ -297,7 +297,14 @@ Enjoy private note taking!
     vaultKeyManager.lock();
   };
 
-  const handlePurgeVault = async () => {
+  const handlePurgeVault = async (purgeCloud = false) => {
+    if (purgeCloud && isSupabaseConfigured()) {
+      try {
+        await supabaseSync.purgeRemoteVault();
+      } catch (err) {
+        console.error('Failed to purge remote vault notes:', err);
+      }
+    }
     await storageAdapter.resetVault();
     vaultKeyManager.lock();
     setHasExistingVault(false);

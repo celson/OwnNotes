@@ -29,7 +29,7 @@ interface SettingsModalProps {
   autoLockMinutes: number;
   onChangeAutoLockMinutes: (mins: number) => void;
   onLockVault: () => void;
-  onPurgeVault: () => void;
+  onPurgeVault: (purgeCloud?: boolean) => void | Promise<void>;
   onReloadNotes: () => void;
   onSyncStatusChange?: () => void;
 }
@@ -151,6 +151,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [confirmPurge, setConfirmPurge] = useState(false);
+  const [purgeCloud, setPurgeCloud] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Supabase state
@@ -188,7 +189,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setTimeout(() => setImportStatus(null), 4000);
     } catch (err) {
       console.error('Import error:', err);
-      alert('Invalid or corrupted backup file.');
+      alert(err instanceof Error ? err.message : 'Invalid or corrupted backup file.');
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
@@ -390,10 +391,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <p className="text-rose-200">
                     Are you sure? This will delete all encrypted notes and reset your local vault.
                   </p>
-                  <div className="flex items-center space-x-2">
+                  {getSupabaseConfig() && (
+                    <label className="flex items-center space-x-2 text-rose-300 text-[11px] cursor-pointer pt-1">
+                      <input
+                        type="checkbox"
+                        checked={purgeCloud}
+                        onChange={(e) => setPurgeCloud(e.target.checked)}
+                        className="rounded border-rose-500/50 bg-rose-950 text-rose-600 focus:ring-rose-500/30"
+                      />
+                      <span>Also permanently delete all notes from Supabase cloud vault</span>
+                    </label>
+                  )}
+                  <div className="flex items-center space-x-2 pt-1">
                     <button
                       type="button"
-                      onClick={() => setConfirmPurge(false)}
+                      onClick={() => {
+                        setConfirmPurge(false);
+                        setPurgeCloud(false);
+                      }}
                       className="px-3 py-1.5 bg-slate-800 text-slate-300 rounded-lg"
                     >
                       Cancel
@@ -402,7 +417,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       type="button"
                       onClick={() => {
                         setConfirmPurge(false);
-                        onPurgeVault();
+                        onPurgeVault(purgeCloud);
                       }}
                       className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-semibold rounded-lg shadow-sm"
                     >

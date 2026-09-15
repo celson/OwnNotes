@@ -3,6 +3,7 @@ export interface DerivedKeys {
   verifierKey: Uint8Array;
   backupKey: Uint8Array;
   vaultId: string; // Deterministic 32-byte hex ID for cloud sync routing
+  syncProof: string; // Deterministic proof-of-ownership secret for claiming a vault_id server-side
 }
 
 export interface EncryptedPayload {

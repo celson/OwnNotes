@@ -34,7 +34,11 @@ interface SettingsModalProps {
   onSyncStatusChange?: () => void;
 }
 
-const SQL_SCHEMA = `-- Run this in your Supabase SQL Editor:
+const SQL_SCHEMA = `-- Run this in your Supabase SQL Editor.
+-- REQUIRED: also enable "Allow anonymous sign-ins" under
+-- Authentication > Sign In / Providers, or sync will fail to authenticate.
+create extension if not exists pgcrypto;
+
 create table if not exists public.ownnotes_records (
   id uuid primary key,
   vault_id text not null,
@@ -48,21 +52,83 @@ create table if not exists public.ownnotes_records (
 create index if not exists idx_ownnotes_records_vault_sync
   on public.ownnotes_records (vault_id, updated_at desc);
 
+create table if not exists public.vault_secrets (
+  vault_id text primary key,
+  proof_hash text not null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.vault_owners (
+  vault_id text not null,
+  owner_id uuid not null references auth.users (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (vault_id, owner_id)
+);
+
 alter table public.ownnotes_records enable row level security;
+alter table public.vault_secrets enable row level security;
+alter table public.vault_owners enable row level security;
 
-create policy "OwnNotes anon select"
-  on public.ownnotes_records for select to anon, authenticated using (true);
+revoke all on public.vault_secrets from anon, authenticated;
+revoke all on public.vault_owners from anon, authenticated;
 
-create policy "OwnNotes anon insert"
-  on public.ownnotes_records for insert to anon, authenticated with check (true);
+drop policy if exists "OwnNotes anon select" on public.ownnotes_records;
+drop policy if exists "OwnNotes anon insert" on public.ownnotes_records;
+drop policy if exists "OwnNotes anon update" on public.ownnotes_records;
+drop policy if exists "OwnNotes anon delete" on public.ownnotes_records;
+drop policy if exists "OwnNotes owners select" on public.ownnotes_records;
+drop policy if exists "OwnNotes owners insert" on public.ownnotes_records;
+drop policy if exists "OwnNotes owners update" on public.ownnotes_records;
+drop policy if exists "OwnNotes owners delete" on public.ownnotes_records;
 
-create policy "OwnNotes anon update"
-  on public.ownnotes_records for update to anon, authenticated using (true) with check (true);
+create policy "OwnNotes owners select"
+  on public.ownnotes_records for select to authenticated
+  using (exists (select 1 from public.vault_owners vo where vo.vault_id = ownnotes_records.vault_id and vo.owner_id = auth.uid()));
 
-create policy "OwnNotes anon delete"
-  on public.ownnotes_records for delete to anon, authenticated using (true);
+create policy "OwnNotes owners insert"
+  on public.ownnotes_records for insert to authenticated
+  with check (exists (select 1 from public.vault_owners vo where vo.vault_id = ownnotes_records.vault_id and vo.owner_id = auth.uid()));
 
-alter publication supabase_realtime add table public.ownnotes_records;`;
+create policy "OwnNotes owners update"
+  on public.ownnotes_records for update to authenticated
+  using (exists (select 1 from public.vault_owners vo where vo.vault_id = ownnotes_records.vault_id and vo.owner_id = auth.uid()))
+  with check (exists (select 1 from public.vault_owners vo where vo.vault_id = ownnotes_records.vault_id and vo.owner_id = auth.uid()));
+
+create policy "OwnNotes owners delete"
+  on public.ownnotes_records for delete to authenticated
+  using (exists (select 1 from public.vault_owners vo where vo.vault_id = ownnotes_records.vault_id and vo.owner_id = auth.uid()));
+
+create or replace function public.claim_vault(p_vault_id text, p_proof text)
+returns void language plpgsql security definer set search_path = public, extensions as $$
+declare
+  v_hash text;
+begin
+  if auth.uid() is null then
+    raise exception 'authentication required';
+  end if;
+  select proof_hash into v_hash from public.vault_secrets where vault_id = p_vault_id;
+  if v_hash is null then
+    insert into public.vault_secrets (vault_id, proof_hash) values (p_vault_id, extensions.crypt(p_proof, extensions.gen_salt('bf')));
+  elsif v_hash <> extensions.crypt(p_proof, v_hash) then
+    raise exception 'invalid vault proof';
+  end if;
+  insert into public.vault_owners (vault_id, owner_id) values (p_vault_id, auth.uid())
+  on conflict (vault_id, owner_id) do nothing;
+end;
+$$;
+
+revoke all on function public.claim_vault(text, text) from public, anon, authenticated;
+grant execute on function public.claim_vault(text, text) to authenticated;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'ownnotes_records'
+  ) then
+    alter publication supabase_realtime add table public.ownnotes_records;
+  end if;
+end $$;`;
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen,
@@ -132,6 +198,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setIsTesting(true);
       setSupabaseConfig(supabaseUrl, supabaseAnonKey);
       resetSupabaseClient();
+      supabaseSync.resetClaim();
 
       const res = await supabaseSync.testConnection();
       setTestResult(res);
@@ -152,6 +219,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const handleDisconnectSupabase = () => {
     clearSupabaseConfig();
     resetSupabaseClient();
+    supabaseSync.resetClaim();
     setSupabaseUrl('');
     setSupabaseAnonKey('');
     setTestResult({ success: true, message: 'Supabase cloud sync disconnected.' });
@@ -357,6 +425,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <p className="text-slate-400 leading-relaxed text-[11px]">
                 Supabase receives only sealed ciphertext and 24-byte nonces. Your keys never leave this device.
                 Any device holding your 12-word phrase automatically syncs to the exact same vault.
+              </p>
+            </div>
+
+            <div className="bg-amber-950/30 border border-amber-500/20 rounded-xl p-3.5 text-slate-300 space-y-1">
+              <strong className="text-amber-300 block font-semibold">Required project setting</strong>
+              <p className="text-slate-400 leading-relaxed text-[11px]">
+                Enable <span className="font-mono">Allow anonymous sign-ins</span> under Authentication &gt; Sign In / Providers
+                in your Supabase dashboard, then run the SQL setup script below. Access to your vault's rows is gated by
+                proving knowledge of your 12-word phrase, not by the SQL schema alone.
               </p>
             </div>
 

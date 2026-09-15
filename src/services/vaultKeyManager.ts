@@ -14,6 +14,7 @@ type Listener = () => void;
 class VaultKeyManager {
   private activeVaultKey: Uint8Array | null = null;
   private activeVaultId: string | null = null;
+  private activeSyncProof: string | null = null;
   private autoLockMinutes = 15; // default: 15 minutes
   private autoLockTimer: ReturnType<typeof setTimeout> | null = null;
   private lockListeners = new Set<Listener>();
@@ -28,7 +29,7 @@ class VaultKeyManager {
    * Unlock the vault with the 12-word mnemonic phrase.
    * Derives keys in memory and immediately sanitizes the seed.
    */
-  public unlock(phrase: string): { verifierKey: Uint8Array; backupKey: Uint8Array; vaultId: string } {
+  public unlock(phrase: string): { verifierKey: Uint8Array; backupKey: Uint8Array; vaultId: string; syncProof: string } {
     this.lock(); // clear previous state if any
 
     const seed = phraseToSeed(phrase);
@@ -36,6 +37,7 @@ class VaultKeyManager {
 
     this.activeVaultKey = keys.vaultKey;
     this.activeVaultId = keys.vaultId;
+    this.activeSyncProof = keys.syncProof;
 
     // Zero the temporary seed memory buffer immediately
     wipe(seed);
@@ -47,6 +49,7 @@ class VaultKeyManager {
       verifierKey: keys.verifierKey,
       backupKey: keys.backupKey,
       vaultId: keys.vaultId,
+      syncProof: keys.syncProof,
     };
   }
 
@@ -59,6 +62,7 @@ class VaultKeyManager {
       this.activeVaultKey = null;
     }
     this.activeVaultId = null;
+    this.activeSyncProof = null;
     if (this.autoLockTimer) {
       clearTimeout(this.autoLockTimer);
       this.autoLockTimer = null;
@@ -78,6 +82,15 @@ class VaultKeyManager {
    */
   public getVaultId(): string | null {
     return this.activeVaultId;
+  }
+
+  /**
+   * Returns the current sync proof: a deterministic secret used solely to claim/attach
+   * this device to the active vault_id via the `claim_vault` RPC. Never used for
+   * encryption or routing, and domain-separated from the vault key and vault ID.
+   */
+  public getSyncProof(): string | null {
+    return this.activeSyncProof;
   }
 
   /**

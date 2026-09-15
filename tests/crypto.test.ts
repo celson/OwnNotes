@@ -47,11 +47,16 @@ describe('OwnNotes Crypto Core', () => {
     expect(bytesToHex(keys1.vaultKey)).toBe(bytesToHex(keys2.vaultKey));
     expect(bytesToHex(keys1.verifierKey)).toBe(bytesToHex(keys2.verifierKey));
     expect(bytesToHex(keys1.backupKey)).toBe(bytesToHex(keys2.backupKey));
+    expect(keys1.syncProof).toBe(keys2.syncProof);
 
     // Domain separation check: keys must be distinct
     expect(bytesToHex(keys1.vaultKey)).not.toBe(bytesToHex(keys1.verifierKey));
     expect(bytesToHex(keys1.vaultKey)).not.toBe(bytesToHex(keys1.backupKey));
     expect(bytesToHex(keys1.verifierKey)).not.toBe(bytesToHex(keys1.backupKey));
+    expect(keys1.syncProof).not.toBe(bytesToHex(keys1.vaultKey));
+    expect(keys1.syncProof).not.toBe(bytesToHex(keys1.verifierKey));
+    expect(keys1.syncProof).not.toBe(bytesToHex(keys1.backupKey));
+    expect(keys1.syncProof).not.toBe(keys1.vaultId);
 
     wipe(seed1);
     wipe(seed2);

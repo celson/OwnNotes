@@ -14,10 +14,12 @@ describe('VaultKeyManager Security Lifecycle', () => {
 
   it('unlocks with a valid phrase and provides volatile key copy', () => {
     const phrase = generatePhrase();
-    const { verifierKey } = vaultKeyManager.unlock(phrase);
+    const { verifierKey, syncProof } = vaultKeyManager.unlock(phrase);
 
     expect(vaultKeyManager.isUnlocked()).toBe(true);
     expect(verifierKey.length).toBe(32);
+    expect(syncProof.length).toBe(64);
+    expect(vaultKeyManager.getSyncProof()).toBe(syncProof);
 
     const keyCopy = vaultKeyManager.getKeyCopy();
     expect(keyCopy.length).toBe(32);
@@ -38,6 +40,7 @@ describe('VaultKeyManager Security Lifecycle', () => {
     expect(vaultKeyManager.isUnlocked()).toBe(false);
     expect(lockNotified).toBe(true);
     expect(() => vaultKeyManager.getKeyCopy()).toThrow('Vault is locked');
+    expect(vaultKeyManager.getSyncProof()).toBeNull();
 
     unsubscribe();
   });

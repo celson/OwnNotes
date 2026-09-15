@@ -12,6 +12,7 @@ export const INFO_VAULT = encodeUtf8('ownnotes-vault-v1');
 export const INFO_VERIFIER = encodeUtf8('ownnotes-verifier-v1');
 export const INFO_BACKUP = encodeUtf8('ownnotes-backup-v1');
 export const INFO_IDENTITY = encodeUtf8('ownnotes-identity-v1');
+export const INFO_SYNC_PROOF = encodeUtf8('ownnotes-sync-proof-v1');
 
 const CHALLENGE_MESSAGE = encodeUtf8('ownnotes-vault-challenge-v1');
 
@@ -47,6 +48,17 @@ export function deriveVaultId(seed: Uint8Array): string {
 }
 
 /**
+ * Derives a deterministic 32-byte proof-of-ownership secret (64-char hex string) from the seed.
+ * Used exclusively to claim/attach a device to a vault_id via the `claim_vault` RPC — it is
+ * never used for routing or encryption, and is domain-separated from every other subkey so
+ * leaking the vaultId or ciphertext reveals nothing about it.
+ */
+export function deriveSyncProof(seed: Uint8Array): string {
+  const bytes = hkdf(sha256, seed, undefined, INFO_SYNC_PROOF, 32);
+  return bytesToHex(bytes);
+}
+
+/**
  * Derives all domain-separated subkeys from the 64-byte seed.
  */
 export function deriveAllKeys(seed: Uint8Array): DerivedKeys {
@@ -55,6 +67,7 @@ export function deriveAllKeys(seed: Uint8Array): DerivedKeys {
     verifierKey: deriveVerifierKey(seed),
     backupKey: deriveBackupKey(seed),
     vaultId: deriveVaultId(seed),
+    syncProof: deriveSyncProof(seed),
   };
 }
 

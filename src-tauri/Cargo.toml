@@ -1,6 +1,6 @@
 [package]
 name = "ownnotes"
-version = "0.5.2"
+version = "0.5.3"
 description = "OwnNotes - Zero-Knowledge Encrypted Notes & Vault"
 authors = ["Celson Simon A. Vieira <celson.simon@gmail.com>"]
 license = "MIT"

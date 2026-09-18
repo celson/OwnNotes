@@ -15,6 +15,7 @@ import { Slice, Fragment } from '@tiptap/pm/model';
 import { createLowlight, common } from 'lowlight';
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
 import { SearchHighlightExtension } from './searchHighlightExtension.js';
+import { serializeClipboardText } from './clipboardUtils.js';
 
 const lowlight = createLowlight(common);
 
@@ -74,6 +75,9 @@ export const RichMarkdownEditor: React.FC<RichMarkdownEditorProps> = ({
     editorProps: {
       attributes: {
         class: 'prose prose-invert max-w-none focus:outline-none min-h-[300px] text-slate-200 text-sm leading-relaxed',
+      },
+      clipboardTextSerializer: (slice, view) => {
+        return serializeClipboardText(slice, view) as string;
       },
       handlePaste: (view, event) => {
         const clipboardData = event.clipboardData;

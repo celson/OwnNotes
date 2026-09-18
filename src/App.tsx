@@ -300,9 +300,22 @@ Enjoy private note taking!
   const handlePurgeVault = async (purgeCloud = false) => {
     if (purgeCloud && isSupabaseConfigured()) {
       try {
-        await supabaseSync.purgeRemoteVault();
+        const result = await supabaseSync.purgeRemoteVault();
+        if (!result.success) {
+          alert(
+            `Could not delete your notes from Supabase (${result.message || 'unknown error'}). ` +
+              'Local data was NOT reset, so nothing is lost — fix the connection and try again.'
+          );
+          return;
+        }
       } catch (err) {
         console.error('Failed to purge remote vault notes:', err);
+        const msg = err instanceof Error ? err.message : String(err);
+        alert(
+          `Could not delete your notes from Supabase (${msg}). ` +
+            'Local data was NOT reset, so nothing is lost — fix the connection and try again.'
+        );
+        return;
       }
     }
     await storageAdapter.resetVault();

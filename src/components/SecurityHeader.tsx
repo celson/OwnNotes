@@ -21,15 +21,16 @@ export const SecurityHeader: React.FC<SecurityHeaderProps> = ({
 }) => {
   return (
     <header className="h-14 border-b border-slate-800 bg-slate-900/90 backdrop-blur-md px-4 flex items-center justify-between z-10 shrink-0">
-      <div className="flex items-center space-x-3">
-        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-600/20 text-indigo-400 border border-indigo-500/30">
+      <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
+        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 shrink-0">
           <Lock className="w-4 h-4" />
         </div>
-        <div className="flex items-baseline space-x-2">
-          <span className="font-bold text-lg tracking-tight text-white">OwnNotes</span>
-          <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1 font-medium">
-            <ShieldCheck className="w-3 h-3" />
-            Zero-Knowledge Vault
+        <div className="flex items-center space-x-2 min-w-0">
+          <span className="font-bold text-lg tracking-tight text-white shrink-0">OwnNotes</span>
+          <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1 font-medium whitespace-nowrap">
+            <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+            <span className="hidden sm:inline">Zero-Knowledge Vault</span>
+            <span className="sm:hidden text-[10px]">Zero-Knowledge</span>
           </span>
         </div>
       </div>

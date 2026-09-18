@@ -14,6 +14,7 @@ import {
   RefreshCw,
   LayoutGrid,
   AlignLeft,
+  Fingerprint,
 } from 'lucide-react';
 import {
   getPhraseValidationDetails,
@@ -23,6 +24,7 @@ import {
 import { checkVerifierToken, createVerifierToken } from '../crypto/kdf.js';
 import { vaultKeyManager } from '../services/vaultKeyManager.js';
 import { storageAdapter } from '../services/storage/indexedDbAdapter.js';
+import { biometricService } from '../services/biometricService.js';
 
 interface UnlockModalProps {
   onUnlocked: () => void;
@@ -41,6 +43,8 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
   const [isUnlocking, setIsUnlocking] = useState(false);
   const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
   const [vaultMismatch, setVaultMismatch] = useState(false);
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const [biometricEnabled, setBiometricEnabled] = useState(false);
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -329,6 +333,61 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
     setErrorMessage('Local vault cleared successfully. You can create a new vault or restore your 12 words.');
   };
 
+  // Check biometric availability and trigger prompt if enabled
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      const avail = await biometricService.isAvailable();
+      const enabled = await biometricService.isEnabled();
+      if (active) {
+        setBiometricAvailable(avail.isAvailable);
+        setBiometricEnabled(enabled);
+        if (avail.isAvailable && enabled) {
+          triggerBiometricUnlock();
+        }
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const triggerBiometricUnlock = async () => {
+    try {
+      setIsUnlocking(true);
+      setErrorMessage(null);
+      const res = await biometricService.unlockWithBiometrics();
+      if (!res.success || !res.phrase) {
+        if (res.error && !res.error.toLowerCase().includes('cancel')) {
+          setErrorMessage(res.error);
+        }
+        return;
+      }
+
+      const { verifierKey } = vaultKeyManager.unlock(res.phrase);
+      const storedToken = await storageAdapter.getVerifierToken();
+      if (storedToken) {
+        const matches = checkVerifierToken(verifierKey, storedToken);
+        if (!matches) {
+          vaultKeyManager.lock();
+          setErrorMessage('A chave biométrica armazenada não corresponde ao cofre local.');
+          return;
+        }
+      }
+
+      onUnlocked();
+    } catch (err: unknown) {
+      console.error('Biometric unlock failure:', err);
+      vaultKeyManager.lock();
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!msg.toLowerCase().includes('cancel')) {
+        setErrorMessage('Falha no desbloqueio por biometria.');
+      }
+    } finally {
+      setIsUnlocking(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 z-50 overflow-y-auto">
       <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full p-5 sm:p-7 shadow-2xl relative my-auto">
@@ -365,6 +424,28 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
                 </button>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Biometric Quick Unlock */}
+        {biometricAvailable && biometricEnabled && (
+          <div className="mb-5">
+            <button
+              type="button"
+              onClick={triggerBiometricUnlock}
+              disabled={isUnlocking}
+              className="w-full py-3 px-4 rounded-xl font-medium bg-gradient-to-r from-emerald-600/90 to-teal-600/90 hover:from-emerald-500 hover:to-teal-500 text-white shadow-lg shadow-emerald-950/40 flex items-center justify-center space-x-2.5 transition-all active:scale-[0.98] border border-emerald-400/30 cursor-pointer"
+            >
+              <Fingerprint className="w-5 h-5 text-emerald-200" />
+              <span className="font-semibold text-sm">Desbloquear com Impressão Digital</span>
+            </button>
+
+            <div className="relative my-4 flex items-center justify-center">
+              <div className="border-t border-slate-800 w-full" />
+              <span className="bg-slate-900 px-3 text-[11px] text-slate-500 uppercase tracking-wider font-semibold shrink-0">
+                ou digite sua frase BIP-39
+              </span>
+            </div>
           </div>
         )}
 

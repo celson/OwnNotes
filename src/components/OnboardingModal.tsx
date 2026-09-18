@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { Key, Copy, Check, Download, AlertTriangle, ArrowRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Key, Copy, Check, Download, AlertTriangle, ArrowRight, Fingerprint } from 'lucide-react';
 import { generatePhrase, isValidPhrase } from '../crypto/mnemonic.js';
 import { createVerifierToken } from '../crypto/kdf.js';
 import { vaultKeyManager } from '../services/vaultKeyManager.js';
 import { storageAdapter } from '../services/storage/indexedDbAdapter.js';
+import { biometricService } from '../services/biometricService.js';
 
 interface OnboardingModalProps {
   onVaultCreated: () => void;
@@ -17,8 +18,23 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   const [phrase, setPhrase] = useState(() => generatePhrase());
   const [copied, setCopied] = useState(false);
   const [confirmedBackup, setConfirmedBackup] = useState(false);
+  const [enableBiometrics, setEnableBiometrics] = useState(true);
+  const [isBiometricAvailable, setIsBiometricAvailable] = useState(false);
   const [backupWarning, setBackupWarning] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      const avail = await biometricService.isAvailable();
+      if (active) {
+        setIsBiometricAvailable(avail.isAvailable);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const words = phrase.split(' ');
 
@@ -83,6 +99,15 @@ ${phrase}
       // Generate the challenge verifier token to store in IndexedDB
       const verifierToken = createVerifierToken(verifierKey);
       await storageAdapter.initVault(verifierToken);
+
+      // Optionally register biometrics on this device
+      if (enableBiometrics && isBiometricAvailable) {
+        try {
+          await biometricService.enableBiometrics(phrase);
+        } catch (bioErr) {
+          console.warn('Could not register biometrics during onboarding:', bioErr);
+        }
+      }
 
       onVaultCreated();
     } catch (err) {
@@ -180,6 +205,24 @@ ${phrase}
             </span>
           </label>
         </div>
+
+        {/* Biometrics Checkbox (if supported) */}
+        {isBiometricAvailable && (
+          <div className="mb-5 p-3 rounded-xl border border-slate-800/80 bg-slate-950/40">
+            <label className="flex items-start space-x-3 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={enableBiometrics}
+                onChange={(e) => setEnableBiometrics(e.target.checked)}
+                className="mt-0.5 w-4 h-4 rounded border-slate-700 bg-slate-950 text-emerald-600 focus:ring-emerald-500 focus:ring-offset-slate-900 cursor-pointer"
+              />
+              <div className="flex items-center gap-1.5 text-xs text-slate-300 group-hover:text-slate-200">
+                <Fingerprint className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>Ativar desbloqueio com impressão digital neste dispositivo</span>
+              </div>
+            </label>
+          </div>
+        )}
 
         {backupWarning && (
           <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 mb-5 flex items-center space-x-2 text-xs text-amber-300 animate-fadeIn">

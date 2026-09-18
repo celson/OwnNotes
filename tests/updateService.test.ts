@@ -66,8 +66,8 @@ describe('Update Service & Semver Logic', () => {
         ok: true,
         status: 200,
         json: async () => ({
-          tag_name: 'v0.5.7',
-          html_url: 'https://github.com/celson/OwnNotes/releases/tag/v0.5.7',
+          tag_name: 'v0.9.9',
+          html_url: 'https://github.com/celson/OwnNotes/releases/tag/v0.9.9',
           body: 'Bug fixes and performance improvements',
           published_at: '2026-09-18T20:00:00Z',
         }),
@@ -76,8 +76,8 @@ describe('Update Service & Semver Logic', () => {
       const res = await checkForUpdates();
       expect(res.hasUpdate).toBe(true);
       expect(res.currentVersion).toBe(APP_VERSION);
-      expect(res.latestVersion).toBe('0.5.7');
-      expect(res.releaseUrl).toBe('https://github.com/celson/OwnNotes/releases/tag/v0.5.7');
+      expect(res.latestVersion).toBe('0.9.9');
+      expect(res.releaseUrl).toBe('https://github.com/celson/OwnNotes/releases/tag/v0.9.9');
     });
 
     it('reports up-to-date when current version matches remote', async () => {

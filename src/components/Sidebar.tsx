@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Search,
   Plus,
@@ -7,8 +7,12 @@ import {
   Pin,
   Trash,
   Tag,
+  Sparkles,
+  RefreshCw,
+  CheckCircle2,
 } from 'lucide-react';
 import type { NoteItem } from '../crypto/types.js';
+import { APP_VERSION, checkForUpdates, type UpdateInfo } from '../services/updateService.js';
 
 export type FilterType = 'all' | 'favorites' | 'pinned' | 'trash';
 
@@ -41,6 +45,44 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isOpenMobile,
   onCloseMobile,
 }) => {
+  // In-app update state
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const [checkFeedback, setCheckFeedback] = useState<{ type: 'success' | 'info'; text: string } | null>(null);
+
+  const handleCheckUpdate = async (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (isCheckingUpdate) return;
+    try {
+      setIsCheckingUpdate(true);
+      setCheckFeedback(null);
+      const res = await checkForUpdates();
+      setUpdateInfo(res);
+      if (res.hasUpdate) {
+        // Shown via badge
+      } else if (!res.error) {
+        setCheckFeedback({ type: 'success', text: 'Atualizado' });
+        setTimeout(() => setCheckFeedback(null), 3500);
+      } else {
+        setCheckFeedback({ type: 'info', text: 'Checar' });
+      }
+    } catch {
+      setCheckFeedback({ type: 'info', text: 'Checar' });
+    } finally {
+      setIsCheckingUpdate(false);
+    }
+  };
+
+  useEffect(() => {
+    // Check quietly in background on mount after 3 seconds
+    const timer = setTimeout(() => {
+      checkForUpdates().then((res) => {
+        setUpdateInfo(res);
+      }).catch(() => {});
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, []);
+
   // Collect all unique tags and counts
   const tagCounts: Record<string, number> = {};
   for (const n of notes) {
@@ -295,6 +337,60 @@ export const Sidebar: React.FC<SidebarProps> = ({
               );
             })
           )}
+        </div>
+
+        {/* Sidebar Footer: App Version & In-App Update Checker */}
+        <div className="p-2.5 px-3 border-t border-slate-800/80 bg-slate-950/70 flex items-center justify-between text-[11px] text-slate-400 shrink-0">
+          <div className="flex items-center space-x-1.5">
+            <span className="font-semibold text-slate-300">OwnNotes</span>
+            <span className="text-slate-500 font-mono text-[10px]">v{APP_VERSION}</span>
+          </div>
+
+          <div className="flex items-center space-x-1">
+            {updateInfo?.hasUpdate ? (
+              <a
+                href={updateInfo.releaseUrl || 'https://github.com/celson/OwnNotes/releases'}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center space-x-1 px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 font-medium transition-colors text-[10px] animate-pulse"
+                title={`Nova versão v${updateInfo.latestVersion} disponível! Clique para baixar.`}
+              >
+                <Sparkles className="w-3 h-3 text-emerald-400" />
+                <span>v{updateInfo.latestVersion}</span>
+              </a>
+            ) : isCheckingUpdate ? (
+              <span className="flex items-center space-x-1 text-slate-500 text-[10px]">
+                <RefreshCw className="w-2.5 h-2.5 animate-spin text-indigo-400" />
+                <span>Checando...</span>
+              </span>
+            ) : checkFeedback ? (
+              <button
+                type="button"
+                onClick={handleCheckUpdate}
+                className={`flex items-center space-x-1 text-[10px] cursor-pointer ${
+                  checkFeedback.type === 'success' ? 'text-emerald-400' : 'text-slate-400 hover:text-slate-300'
+                }`}
+                title="Clique para checar novamente"
+              >
+                {checkFeedback.type === 'success' ? (
+                  <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                ) : (
+                  <RefreshCw className="w-2.5 h-2.5 text-slate-500" />
+                )}
+                <span>{checkFeedback.text}</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleCheckUpdate}
+                className="flex items-center space-x-1 text-slate-500 hover:text-indigo-400 transition-colors cursor-pointer text-[10px]"
+                title="Verificar se há novas versões no GitHub"
+              >
+                <RefreshCw className="w-2.5 h-2.5" />
+                <span>Verificar</span>
+              </button>
+            )}
+          </div>
         </div>
       </aside>
     </>

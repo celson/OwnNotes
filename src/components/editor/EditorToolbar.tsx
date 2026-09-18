@@ -60,7 +60,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
   };
 
   const btnClass = (active: boolean, disabled?: boolean) => `
-    p-1.5 rounded-md text-xs transition-colors flex items-center justify-center
+    p-1.5 rounded-md text-xs transition-colors flex items-center justify-center shrink-0
     ${disabled ? 'opacity-30 cursor-not-allowed text-slate-600' : 'cursor-pointer'}
     ${
       active
@@ -70,7 +70,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
   `;
 
   return (
-    <div className="flex items-center justify-between border-b border-slate-800/80 px-4 py-1.5 bg-slate-900/60 overflow-x-auto scrollbar-none gap-2 shrink-0">
+    <div className="flex items-center justify-between border-b border-slate-800/80 px-2.5 sm:px-4 py-1.5 bg-slate-900/60 overflow-x-auto scrollbar-none gap-2 shrink-0 select-none">
       {/* Formatting Tools (Active only in WYSIWYG mode) */}
       <div className="flex items-center space-x-1 shrink-0">
         {!isSourceMode && editor ? (
@@ -247,20 +247,20 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
       </div>
 
       {/* Search & Mode Switch Buttons */}
-      <div className="shrink-0 flex items-center space-x-1.5">
+      <div className="shrink-0 flex items-center space-x-1 sm:space-x-1.5">
         {onToggleSearch && (
           <button
             type="button"
             onClick={onToggleSearch}
-            className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
+            className={`flex items-center space-x-1 sm:space-x-1.5 px-2 sm:px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors cursor-pointer shrink-0 ${
               isSearchOpen
                 ? 'bg-indigo-600 text-slate-950 border-indigo-500 font-bold shadow-sm shadow-indigo-600/30'
                 : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white hover:bg-slate-700'
             }`}
             title="Search in note (Ctrl+F)"
           >
-            <Search className={`w-3.5 h-3.5 ${isSearchOpen ? 'text-slate-950' : 'text-indigo-400'}`} />
-            <span>Search</span>
+            <Search className={`w-3.5 h-3.5 shrink-0 ${isSearchOpen ? 'text-slate-950' : 'text-indigo-400'}`} />
+            <span className="hidden sm:inline">Search</span>
           </button>
         )}
 
@@ -268,7 +268,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
         <button
           type="button"
           onClick={onToggleSourceMode}
-          className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
+          className={`flex items-center space-x-1 sm:space-x-1.5 px-2 sm:px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors cursor-pointer shrink-0 ${
             isSourceMode
               ? 'bg-indigo-600/20 text-indigo-300 border-indigo-500/30'
               : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white hover:bg-slate-700'
@@ -277,13 +277,13 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
         >
           {isSourceMode ? (
             <>
-              <Eye className="w-3.5 h-3.5 text-indigo-400" />
-              <span>MarkDown</span>
+              <Eye className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+              <span className="hidden sm:inline">MarkDown</span>
             </>
           ) : (
             <>
-              <FileCode2 className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Source</span>
+              <FileCode2 className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+              <span className="hidden sm:inline">Source</span>
             </>
           )}
         </button>

@@ -273,8 +273,8 @@ export const Editor: React.FC<EditorProps> = ({
             </button>
           </div>
         </div>
-        <div className="h-8 border-t border-slate-800/60 px-6 flex items-center text-[11px] text-slate-500 shrink-0 bg-ctp-base">
-          <span className="font-mono text-slate-400 font-medium">v{APP_VERSION}</span>
+        <div className="h-9 border-t border-slate-800/80 px-4 flex items-center text-xs text-slate-400 shrink-0 bg-slate-950/80 select-none">
+          <span className="md:hidden font-mono text-slate-400 font-medium">v{APP_VERSION}</span>
         </div>
       </main>
     );
@@ -310,11 +310,11 @@ export const Editor: React.FC<EditorProps> = ({
   return (
     <main className="flex-1 flex flex-col bg-ctp-base overflow-hidden">
       {/* Editor Header / Action Bar */}
-      <div className="h-12 border-b border-slate-800/80 px-4 flex items-center justify-between shrink-0 bg-ctp-base/50">
-        <div className="flex items-center space-x-2">
+      <div className="h-12 border-b border-slate-800/80 px-3 sm:px-4 flex items-center justify-between shrink-0 bg-ctp-base/50 select-none">
+        <div className="flex items-center space-x-1 sm:space-x-2 shrink-0">
           <button
             onClick={onToggleMobileSidebar}
-            className="md:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+            className="md:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 shrink-0"
             title="Toggle Notes List"
           >
             <Menu className="w-4 h-4" />
@@ -322,7 +322,7 @@ export const Editor: React.FC<EditorProps> = ({
 
           <button
             onClick={() => onUpdateNote({ isPinned: !note.isPinned })}
-            className={`p-1.5 rounded-lg text-xs flex items-center space-x-1 transition-colors ${
+            className={`p-1.5 rounded-lg text-xs flex items-center space-x-1 transition-colors shrink-0 ${
               note.isPinned
                 ? 'text-indigo-400 bg-indigo-500/10'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
@@ -334,7 +334,7 @@ export const Editor: React.FC<EditorProps> = ({
 
           <button
             onClick={() => onUpdateNote({ isFavorite: !note.isFavorite })}
-            className={`p-1.5 rounded-lg text-xs flex items-center space-x-1 transition-colors ${
+            className={`p-1.5 rounded-lg text-xs flex items-center space-x-1 transition-colors shrink-0 ${
               note.isFavorite
                 ? 'text-amber-400 bg-amber-500/10'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
@@ -345,27 +345,27 @@ export const Editor: React.FC<EditorProps> = ({
           </button>
         </div>
 
-        <div className="flex items-center space-x-3">
-          <div className="flex items-center space-x-1.5 text-[11px] text-slate-500">
+        <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
+          <div className="flex items-center space-x-1.5 text-[11px] text-slate-500 shrink-0">
             {isSaving || (isCloudConfigured && syncStatus === 'syncing') ? (
-              <span className="text-amber-400 animate-pulse flex items-center gap-1 font-medium">
-                <RefreshCw className="w-3 h-3 animate-spin text-amber-400" />
+              <span className="text-amber-400 animate-pulse flex items-center gap-1 font-medium shrink-0">
+                <RefreshCw className="w-3 h-3 animate-spin text-amber-400 shrink-0" />
                 <span>{isSaving ? 'Encrypting & saving...' : 'Syncing to cloud...'}</span>
               </span>
             ) : isCloudConfigured && syncStatus === 'synced' ? (
-              <span className="flex items-center gap-1 text-emerald-400/80 font-medium">
-                <CloudCheck className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="flex items-center gap-1 text-emerald-400/80 font-medium shrink-0">
+                <CloudCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                 <span className="hidden sm:inline">Sealed & Synced</span>
                 <span className="sm:hidden">Synced</span>
               </span>
             ) : isCloudConfigured && syncStatus === 'error' ? (
-              <span className="flex items-center gap-1 text-rose-400 font-medium">
-                <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+              <span className="flex items-center gap-1 text-rose-400 font-medium shrink-0">
+                <AlertTriangle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
                 <span className="hidden sm:inline">Sync Error</span>
               </span>
             ) : (
-              <span className="flex items-center gap-1 text-emerald-400/80">
-                <CheckCircle2 className="w-3 h-3" />
+              <span className="flex items-center gap-1 text-emerald-400/80 shrink-0">
+                <CheckCircle2 className="w-3 h-3 shrink-0" />
                 <span className="hidden sm:inline">Sealed with XChaCha20</span>
                 <span className="sm:hidden">Sealed</span>
               </span>
@@ -373,10 +373,10 @@ export const Editor: React.FC<EditorProps> = ({
           </div>
 
           {note.isTrashed ? (
-            <div className="flex items-center space-x-1">
+            <div className="flex items-center space-x-1 shrink-0">
               <button
                 onClick={() => onUpdateNote({ isTrashed: false })}
-                className="px-2 py-1 text-xs text-emerald-400 hover:bg-emerald-500/10 rounded-lg flex items-center space-x-1"
+                className="px-2 py-1 text-xs text-emerald-400 hover:bg-emerald-500/10 rounded-lg flex items-center space-x-1 shrink-0"
                 title="Restore Note"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
@@ -384,7 +384,7 @@ export const Editor: React.FC<EditorProps> = ({
               </button>
               <button
                 onClick={() => onDeleteNote(note.id, true)}
-                className="px-2 py-1 text-xs text-rose-400 hover:bg-rose-500/10 rounded-lg flex items-center space-x-1"
+                className="px-2 py-1 text-xs text-rose-400 hover:bg-rose-500/10 rounded-lg flex items-center space-x-1 shrink-0"
                 title="Delete Permanently"
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -394,7 +394,7 @@ export const Editor: React.FC<EditorProps> = ({
           ) : (
             <button
               onClick={() => onDeleteNote(note.id, false)}
-              className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-slate-800 transition-colors"
+              className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-slate-800 transition-colors shrink-0"
               title="Move to Trash"
             >
               <Trash2 className="w-4 h-4" />
@@ -496,16 +496,17 @@ export const Editor: React.FC<EditorProps> = ({
       </div>
 
       {/* Footer Info */}
-      <div className="h-8 border-t border-slate-800/60 px-6 flex items-center justify-between text-[11px] text-slate-500 shrink-0 bg-ctp-base">
-        <div className="flex items-center space-x-2">
-          <span className="font-mono text-slate-400 font-medium">v{APP_VERSION}</span>
-          <span className="text-slate-700">•</span>
-          <span>
-            {wordCount} {wordCount === 1 ? 'word' : 'words'} • {charCount} {charCount === 1 ? 'character' : 'characters'}
+      <div className="h-9 border-t border-slate-800/80 px-4 flex items-center justify-between text-xs text-slate-400 shrink-0 bg-slate-950/80 select-none">
+        <div className="flex items-center space-x-2 min-w-0 truncate">
+          <span className="md:hidden font-mono text-slate-400 font-medium shrink-0">v{APP_VERSION} •</span>
+          <span className="truncate">
+            {wordCount} {wordCount === 1 ? 'word' : 'words'}
+            <span className="hidden sm:inline text-slate-500"> • {charCount} {charCount === 1 ? 'character' : 'characters'}</span>
           </span>
         </div>
-        <div>
-          Last updated: {new Date(note.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        <div className="shrink-0 text-slate-500 text-[11px] whitespace-nowrap pl-2">
+          <span className="hidden sm:inline">Last updated: </span>
+          <span>{new Date(note.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
         </div>
       </div>
     </main>

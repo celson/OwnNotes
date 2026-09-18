@@ -179,19 +179,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Categories / Navigation */}
-        <div className="px-3 py-2 border-b border-slate-800 flex items-center justify-between text-xs text-slate-400">
+        <div className="px-2.5 py-1.5 border-b border-slate-800 flex items-center justify-between text-xs text-slate-400 gap-1">
           <button
             onClick={() => {
               onFilterChange('all');
               onSelectTag(null);
             }}
-            className={`flex items-center space-x-1.5 px-2 py-1 rounded-md transition-colors ${
+            className={`flex items-center space-x-1.5 px-2 py-1 rounded-md transition-colors whitespace-nowrap shrink-0 ${
               activeFilter === 'all' && !selectedTag
                 ? 'bg-slate-800 text-indigo-400 font-semibold'
                 : 'hover:text-slate-200'
             }`}
           >
-            <FileText className="w-3.5 h-3.5" />
+            <FileText className="w-3.5 h-3.5 shrink-0" />
             <span>All ({notes.filter((n) => !n.isTrashed).length})</span>
           </button>
 
@@ -200,14 +200,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onFilterChange('favorites');
               onSelectTag(null);
             }}
-            className={`flex items-center space-x-1 px-2 py-1 rounded-md transition-colors ${
+            className={`flex items-center space-x-1 px-2 py-1 rounded-md transition-colors whitespace-nowrap shrink-0 ${
               activeFilter === 'favorites'
                 ? 'bg-slate-800 text-amber-400 font-semibold'
                 : 'hover:text-slate-200'
             }`}
             title="Starred Notes"
           >
-            <Star className="w-3.5 h-3.5" />
+            <Star className="w-3.5 h-3.5 shrink-0" />
             <span>Favs</span>
           </button>
 
@@ -216,14 +216,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onFilterChange('pinned');
               onSelectTag(null);
             }}
-            className={`flex items-center space-x-1 px-2 py-1 rounded-md transition-colors ${
+            className={`flex items-center space-x-1 px-2 py-1 rounded-md transition-colors whitespace-nowrap shrink-0 ${
               activeFilter === 'pinned'
                 ? 'bg-slate-800 text-indigo-400 font-semibold'
                 : 'hover:text-slate-200'
             }`}
             title="Pinned Notes"
           >
-            <Pin className="w-3.5 h-3.5" />
+            <Pin className="w-3.5 h-3.5 shrink-0" />
             <span>Pinned</span>
           </button>
 
@@ -232,14 +232,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onFilterChange('trash');
               onSelectTag(null);
             }}
-            className={`flex items-center space-x-1 px-2 py-1 rounded-md transition-colors ${
+            className={`flex items-center space-x-1 px-2 py-1 rounded-md transition-colors shrink-0 ${
               activeFilter === 'trash'
                 ? 'bg-slate-800 text-rose-400 font-semibold'
                 : 'hover:text-slate-200'
             }`}
             title="Trash"
           >
-            <Trash className="w-3.5 h-3.5" />
+            <Trash className="w-3.5 h-3.5 shrink-0" />
           </button>
         </div>
 
@@ -340,42 +340,42 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Sidebar Footer: App Version & In-App Update Checker */}
-        <div className="p-2.5 px-3 border-t border-slate-800/80 bg-slate-950/70 flex items-center justify-between text-[11px] text-slate-400 shrink-0">
-          <div className="flex items-center space-x-1.5">
-            <span className="font-semibold text-slate-300">OwnNotes</span>
-            <span className="text-slate-500 font-mono text-[10px]">v{APP_VERSION}</span>
+        <div className="h-9 px-3 border-t border-slate-800/80 bg-slate-950/80 flex items-center justify-between text-xs text-slate-400 shrink-0 select-none">
+          <div className="flex items-center space-x-1.5 min-w-0">
+            <span className="font-semibold text-slate-200 text-xs shrink-0">OwnNotes</span>
+            <span className="text-slate-400 font-mono text-[11px] shrink-0">v{APP_VERSION}</span>
           </div>
 
-          <div className="flex items-center space-x-1">
+          <div className="flex items-center shrink-0">
             {updateInfo?.hasUpdate ? (
               <a
                 href={updateInfo.releaseUrl || 'https://github.com/celson/OwnNotes/releases'}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center space-x-1 px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 font-medium transition-colors text-[10px] animate-pulse"
+                className="flex items-center space-x-1 px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 font-medium transition-colors text-[11px] animate-pulse shrink-0"
                 title={`Nova versão v${updateInfo.latestVersion} disponível! Clique para baixar.`}
               >
-                <Sparkles className="w-3 h-3 text-emerald-400" />
+                <Sparkles className="w-3 h-3 text-emerald-400 shrink-0" />
                 <span>v{updateInfo.latestVersion}</span>
               </a>
             ) : isCheckingUpdate ? (
-              <span className="flex items-center space-x-1 text-slate-500 text-[10px]">
-                <RefreshCw className="w-2.5 h-2.5 animate-spin text-indigo-400" />
+              <span className="flex items-center space-x-1 text-slate-400 text-[11px] shrink-0">
+                <RefreshCw className="w-3 h-3 animate-spin text-indigo-400 shrink-0" />
                 <span>Checando...</span>
               </span>
             ) : checkFeedback ? (
               <button
                 type="button"
                 onClick={handleCheckUpdate}
-                className={`flex items-center space-x-1 text-[10px] cursor-pointer ${
-                  checkFeedback.type === 'success' ? 'text-emerald-400' : 'text-slate-400 hover:text-slate-300'
+                className={`flex items-center space-x-1 text-[11px] cursor-pointer shrink-0 ${
+                  checkFeedback.type === 'success' ? 'text-emerald-400' : 'text-slate-300 hover:text-white'
                 }`}
                 title="Clique para checar novamente"
               >
                 {checkFeedback.type === 'success' ? (
-                  <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                 ) : (
-                  <RefreshCw className="w-2.5 h-2.5 text-slate-500" />
+                  <RefreshCw className="w-3 h-3 text-slate-400 shrink-0" />
                 )}
                 <span>{checkFeedback.text}</span>
               </button>
@@ -383,10 +383,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 type="button"
                 onClick={handleCheckUpdate}
-                className="flex items-center space-x-1 text-slate-500 hover:text-indigo-400 transition-colors cursor-pointer text-[10px]"
+                className="flex items-center space-x-1 px-1.5 py-0.5 rounded text-slate-400 hover:text-indigo-300 hover:bg-slate-800/60 transition-colors cursor-pointer text-[11px] shrink-0"
                 title="Verificar se há novas versões no GitHub"
               >
-                <RefreshCw className="w-2.5 h-2.5" />
+                <RefreshCw className="w-3 h-3 shrink-0" />
                 <span>Verificar</span>
               </button>
             )}

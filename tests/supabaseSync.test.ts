@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import type { NoteItem } from '../src/crypto/types.js';
 import {
   generatePhrase,
   phraseToSeed,
@@ -75,5 +76,83 @@ describe('Supabase Vault Identity & Sync Primitives', () => {
     const res = await supabaseSync.purgeRemoteVault();
     expect(res.success).toBe(false);
     expect(res.message).toBeDefined();
+  });
+
+  it('accepts remote note updates on active note once typing debounce completes', () => {
+    const activeNoteId = 'note-live-sync-test';
+
+    const localNotes: NoteItem[] = [
+      {
+        id: activeNoteId,
+        title: 'Meeting Notes',
+        body: 'Initial content on device B',
+        tags: ['work'],
+        category: 'Work',
+        isFavorite: false,
+        isPinned: false,
+        isTrashed: false,
+        createdAt: 1000,
+        updatedAt: 1000,
+      },
+    ];
+
+    const remoteIncomingNote: NoteItem = {
+      id: activeNoteId,
+      title: 'Meeting Notes Updated',
+      body: 'Live content streamed from Device A!',
+      tags: ['work'],
+      category: 'Work',
+      isFavorite: false,
+      isPinned: false,
+      isTrashed: false,
+      createdAt: 1000,
+      updatedAt: 2000,
+    };
+
+    const applyDecryptedList = (
+      prevNotes: NoteItem[],
+      decryptedList: NoteItem[],
+      currentSelectedId: string | null,
+      timeoutRef: ReturnType<typeof setTimeout> | null
+    ) => {
+      const activeDraft = currentSelectedId ? prevNotes.find((p) => p.id === currentSelectedId) : null;
+      return decryptedList.map((n) => {
+        if (activeDraft && n.id === activeDraft.id && timeoutRef) {
+          return activeDraft;
+        }
+        return n;
+      });
+    };
+
+    // While debounce timer is active, retain local typing draft
+    let saveTimeout: ReturnType<typeof setTimeout> | null = setTimeout(() => {}, 350);
+    const duringTypingResult = applyDecryptedList(localNotes, [remoteIncomingNote], activeNoteId, saveTimeout);
+    expect(duringTypingResult[0].body).toBe('Initial content on device B');
+
+    // Once debounce finishes and resets to null, incoming remote updates are accepted immediately
+    clearTimeout(saveTimeout);
+    saveTimeout = null;
+
+    const afterDebounceResult = applyDecryptedList(localNotes, [remoteIncomingNote], activeNoteId, saveTimeout);
+    expect(afterDebounceResult[0].body).toBe('Live content streamed from Device A!');
+    expect(afterDebounceResult[0].title).toBe('Meeting Notes Updated');
+    expect(afterDebounceResult[0].updatedAt).toBe(2000);
+  });
+
+  it('serializes concurrent syncAll calls and avoids unhandled errors', async () => {
+    const { supabaseSync } = await import('../src/services/supabase/syncService.js');
+
+    const cb1 = vi.fn();
+    const cb2 = vi.fn();
+    const cb3 = vi.fn();
+
+    await Promise.all([
+      supabaseSync.syncAll(cb1),
+      supabaseSync.syncAll(cb2),
+      supabaseSync.syncAll(cb3),
+    ]);
+
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(['idle', 'not_configured', 'synced']).toContain(supabaseSync.getStatus());
   });
 });

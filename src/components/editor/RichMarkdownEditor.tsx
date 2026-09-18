@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import type { Editor } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
@@ -32,6 +32,8 @@ export const RichMarkdownEditor: React.FC<RichMarkdownEditorProps> = ({
   onChange,
   onEditorReady,
 }) => {
+  const isExternalUpdateRef = useRef(false);
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -133,6 +135,7 @@ export const RichMarkdownEditor: React.FC<RichMarkdownEditorProps> = ({
       },
     },
     onUpdate: ({ editor: currentEditor }: { editor: Editor }) => {
+      if (isExternalUpdateRef.current) return;
       const markdown = currentEditor.storage.markdown.getMarkdown();
       onChange(markdown);
     },
@@ -146,12 +149,27 @@ export const RichMarkdownEditor: React.FC<RichMarkdownEditorProps> = ({
     };
   }, [editor, onEditorReady]);
 
-  // When note switches, update content
+  // When note switches or remote content arrives, update editor content without feedback loops
   useEffect(() => {
     if (editor && !editor.isDestroyed) {
       const currentMarkdown = editor.storage.markdown.getMarkdown();
       if (currentMarkdown !== content) {
-        editor.commands.setContent(content);
+        const isFocused = editor.isFocused;
+        const { from, to } = editor.state.selection;
+
+        isExternalUpdateRef.current = true;
+        try {
+          editor.commands.setContent(content, { emitUpdate: false });
+          if (isFocused) {
+            const maxPos = editor.state.doc.content.size;
+            editor.commands.setTextSelection({
+              from: Math.min(from, maxPos),
+              to: Math.min(to, maxPos),
+            });
+          }
+        } finally {
+          isExternalUpdateRef.current = false;
+        }
       }
     }
   }, [noteId, editor, content]);

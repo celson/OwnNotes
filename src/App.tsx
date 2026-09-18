@@ -4,6 +4,7 @@ import { storageAdapter } from './services/storage/indexedDbAdapter.js';
 import { encryptNote, decryptNote, wipe, generateUUID } from './crypto/index.js';
 import type { NoteItem } from './crypto/types.js';
 import { supabaseSync, isSupabaseConfigured, type SyncStatus } from './services/supabase/index.js';
+import { biometricService } from './services/biometricService.js';
 
 import { SecurityHeader } from './components/SecurityHeader.js';
 import { Sidebar, type FilterType } from './components/Sidebar.js';
@@ -318,6 +319,7 @@ Enjoy private note taking!
         return;
       }
     }
+    await biometricService.disableBiometrics();
     await storageAdapter.resetVault();
     vaultKeyManager.lock();
     setHasExistingVault(false);
@@ -375,6 +377,8 @@ Enjoy private note taking!
           onNewNote={handleNewNote}
           onToggleMobileSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
           isSaving={isSaving}
+          syncStatus={syncStatus}
+          isCloudConfigured={cloudConfigured}
         />
       </div>
 

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   X,
   Shield,
@@ -13,6 +13,7 @@ import {
   Check,
   Copy,
   Code2,
+  Fingerprint,
 } from 'lucide-react';
 import { exportVaultBackup, importVaultBackup } from '../services/backup.js';
 import {
@@ -22,6 +23,11 @@ import {
 } from '../services/supabase/config.js';
 import { supabaseSync } from '../services/supabase/syncService.js';
 import { resetSupabaseClient } from '../services/supabase/client.js';
+import { biometricService } from '../services/biometricService.js';
+import { checkVerifierToken } from '../crypto/kdf.js';
+import { phraseToSeed, deriveAllKeys, wipe } from '../crypto/index.js';
+import { isValidPhrase } from '../crypto/mnemonic.js';
+import { storageAdapter } from '../services/storage/indexedDbAdapter.js';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -135,7 +141,9 @@ begin
   ) then
     alter publication supabase_realtime add table public.ownnotes_records;
   end if;
-end $$;`;
+end $$;
+
+alter table public.ownnotes_records replica identity full;`;
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen,
@@ -162,6 +170,96 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [isTesting, setIsTesting] = useState(false);
   const [copiedSql, setCopiedSql] = useState(false);
   const [showSqlSchema, setShowSqlSchema] = useState(false);
+
+  // Biometric state
+  const [isBiometricHardwareAvailable, setIsBiometricHardwareAvailable] = useState(false);
+  const [isBiometricActive, setIsBiometricActive] = useState(false);
+  const [showBiometricPhraseInput, setShowBiometricPhraseInput] = useState(false);
+  const [biometricPhraseInput, setBiometricPhraseInput] = useState('');
+  const [biometricMessage, setBiometricMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [isTogglingBiometrics, setIsTogglingBiometrics] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let active = true;
+    void (async () => {
+      const avail = await biometricService.isAvailable();
+      const enabled = await biometricService.isEnabled();
+      if (active) {
+        setIsBiometricHardwareAvailable(avail.isAvailable);
+        setIsBiometricActive(enabled);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [isOpen]);
+
+  const handleDisableBiometrics = async () => {
+    try {
+      setIsTogglingBiometrics(true);
+      await biometricService.disableBiometrics();
+      setIsBiometricActive(false);
+      setShowBiometricPhraseInput(false);
+      setBiometricPhraseInput('');
+      setBiometricMessage({ type: 'success', text: 'Desbloqueio por biometria desativado.' });
+      setTimeout(() => setBiometricMessage(null), 3500);
+    } catch (err) {
+      console.error('Failed to disable biometrics:', err);
+    } finally {
+      setIsTogglingBiometrics(false);
+    }
+  };
+
+  const handleConfirmEnableBiometrics = async () => {
+    const clean = biometricPhraseInput.trim().toLowerCase().replace(/\s+/g, ' ');
+    if (!isValidPhrase(clean)) {
+      setBiometricMessage({ type: 'error', text: 'Frase BIP-39 inválida. Verifique as 12 palavras digitadas.' });
+      return;
+    }
+
+    try {
+      setIsTogglingBiometrics(true);
+      setBiometricMessage(null);
+
+      // Verify that this phrase matches the active vault
+      const seed = phraseToSeed(clean);
+      const keys = deriveAllKeys(seed);
+      wipe(seed);
+
+      const storedToken = await storageAdapter.getVerifierToken();
+      if (storedToken) {
+        const matches = checkVerifierToken(keys.verifierKey, storedToken);
+        wipe(keys.vaultKey);
+        wipe(keys.backupKey);
+        if (!matches) {
+          setBiometricMessage({ type: 'error', text: 'A frase digitada não corresponde ao cofre atualmente aberto.' });
+          return;
+        }
+      } else {
+        wipe(keys.vaultKey);
+        wipe(keys.backupKey);
+      }
+
+      // Prompt biometrics & save to native Keystore
+      const res = await biometricService.enableBiometrics(clean);
+      if (!res.success) {
+        setBiometricMessage({ type: 'error', text: res.error || 'Falha ao validar biometria.' });
+        return;
+      }
+
+      setIsBiometricActive(true);
+      setShowBiometricPhraseInput(false);
+      setBiometricPhraseInput('');
+      setBiometricMessage({ type: 'success', text: 'Desbloqueio por impressão digital ativado com sucesso!' });
+      setTimeout(() => setBiometricMessage(null), 3500);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setBiometricMessage({ type: 'error', text: `Erro: ${msg}` });
+    } finally {
+      setIsTogglingBiometrics(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -331,6 +429,105 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <span>Lock Vault Now</span>
               </button>
             </div>
+
+            {/* Section: Biometrics */}
+            {isBiometricHardwareAvailable && (
+              <div>
+                <h4 className="font-semibold text-slate-100 flex items-center gap-1.5 mb-2">
+                  <Fingerprint className="w-3.5 h-3.5 text-emerald-400" />
+                  Autenticação por Impressão Digital (Biometria)
+                </h4>
+                <p className="text-slate-400 mb-3 leading-relaxed">
+                  Permite desbloquear o cofre instantaneamente com sua impressão digital. A frase BIP-39 é protegida pelo hardware de segurança (KeyStore) do seu dispositivo.
+                </p>
+
+                {biometricMessage && (
+                  <div className={`p-2.5 rounded-lg mb-3 flex items-center gap-2 ${
+                    biometricMessage.type === 'success'
+                      ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-300'
+                      : 'bg-rose-500/10 border border-rose-500/20 text-rose-300'
+                  }`}>
+                    {biometricMessage.type === 'success' ? (
+                      <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                    )}
+                    <span>{biometricMessage.text}</span>
+                  </div>
+                )}
+
+                <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="font-medium text-slate-200 block">Desbloqueio com Biometria</span>
+                      <span className="text-[11px] text-slate-400">
+                        {isBiometricActive ? 'Ativado neste dispositivo' : 'Desativado'}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isBiometricActive) {
+                          handleDisableBiometrics();
+                        } else {
+                          setShowBiometricPhraseInput((prev) => !prev);
+                          setBiometricMessage(null);
+                        }
+                      }}
+                      disabled={isTogglingBiometrics}
+                      className={`px-3.5 py-1.5 rounded-lg font-semibold text-xs transition-colors cursor-pointer ${
+                        isBiometricActive
+                          ? 'bg-rose-600/20 text-rose-300 border border-rose-500/30 hover:bg-rose-600/30'
+                          : 'bg-emerald-600 text-white hover:bg-emerald-500'
+                      }`}
+                    >
+                      {isTogglingBiometrics
+                        ? 'Processando...'
+                        : isBiometricActive
+                        ? 'Desativar'
+                        : showBiometricPhraseInput
+                        ? 'Fechar'
+                        : 'Ativar'}
+                    </button>
+                  </div>
+
+                  {showBiometricPhraseInput && !isBiometricActive && (
+                    <div className="pt-3 border-t border-slate-800 space-y-2.5">
+                      <p className="text-[11px] text-slate-300">
+                        Digite sua frase de 12 palavras para confirmar e vincular à sua impressão digital:
+                      </p>
+                      <textarea
+                        value={biometricPhraseInput}
+                        onChange={(e) => setBiometricPhraseInput(e.target.value)}
+                        placeholder="Digite suas 12 palavras separadas por espaço..."
+                        className="w-full h-18 p-2 text-xs bg-slate-900 border border-slate-700 rounded-lg text-slate-200 font-mono focus:border-indigo-500 focus:outline-none"
+                      />
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowBiometricPhraseInput(false);
+                            setBiometricPhraseInput('');
+                          }}
+                          className="px-3 py-1 text-xs text-slate-400 hover:text-slate-200 rounded-lg border border-slate-700"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleConfirmEnableBiometrics}
+                          disabled={isTogglingBiometrics || !biometricPhraseInput.trim()}
+                          className="px-3.5 py-1 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                        >
+                          {isTogglingBiometrics ? 'Validando...' : 'Confirmar e Ativar Digital'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Section: Backup & Export */}
             <div>

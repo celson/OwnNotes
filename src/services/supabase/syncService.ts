@@ -119,6 +119,8 @@ class SupabaseSyncService {
     if (!client || !vaultId) return;
     if (!(await this.ensureClaimed(client, vaultId))) return;
 
+    this.setStatus('syncing');
+
     try {
       const row: SupabaseNoteRow = {
         id: record.id,
@@ -134,9 +136,13 @@ class SupabaseSyncService {
       if (error) {
         console.error('Supabase push error:', error);
         this.setStatus('error', error.message);
+      } else {
+        this.setStatus('synced');
       }
     } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
       console.error('Failed to push note to Supabase:', err);
+      this.setStatus('error', msg);
     }
   }
 
@@ -288,7 +294,11 @@ class SupabaseSyncService {
               this.syncAll(onRemoteChange);
             }
           )
-          .subscribe();
+          .subscribe((status, err) => {
+            if (err) {
+              console.error('Supabase Realtime subscription error:', status, err);
+            }
+          });
 
         if (cancelled) {
           client.removeChannel(channel);

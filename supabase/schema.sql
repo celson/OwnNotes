@@ -175,3 +175,8 @@ begin
     alter publication supabase_realtime add table public.ownnotes_records;
   end if;
 end $$;
+
+-- Set REPLICA IDENTITY FULL so Postgres Realtime includes all columns in WAL updates,
+-- enabling Realtime to evaluate RLS and filters (vault_id) on UPDATE and DELETE operations.
+alter table public.ownnotes_records replica identity full;
+

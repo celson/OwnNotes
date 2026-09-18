@@ -22,6 +22,7 @@ import { RichMarkdownEditor } from './editor/RichMarkdownEditor.js';
 import { RawMarkdownEditor } from './editor/RawMarkdownEditor.js';
 import { searchHighlightPluginKey } from './editor/searchHighlightExtension.js';
 import { findMatchesInDoc, findMatchesInText } from './editor/searchUtils.js';
+import { APP_VERSION } from '../services/updateService.js';
 
 function stripMarkdown(md: string): string {
   if (!md) return '';
@@ -242,32 +243,38 @@ export const Editor: React.FC<EditorProps> = ({
 
   if (!note) {
     return (
-      <main className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-ctp-base">
-        <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 mb-4">
-          <Shield className="w-7 h-7" />
-        </div>
-        <h3 className="text-base font-semibold text-slate-200 mb-1">
-          No Note Selected
-        </h3>
-        <p className="text-xs text-slate-500 max-w-sm mb-5">
-          Choose a note from the sidebar or create a new encrypted note to begin writing.
-        </p>
-        <div className="flex items-center space-x-3">
-          {onNewNote && (
+      <main className="flex-1 flex flex-col justify-between bg-ctp-base overflow-hidden">
+        <div />
+        <div className="flex flex-col items-center justify-center p-8 text-center">
+          <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 mb-4">
+            <Shield className="w-7 h-7" />
+          </div>
+          <h3 className="text-base font-semibold text-slate-200 mb-1">
+            No Note Selected
+          </h3>
+          <p className="text-xs text-slate-500 max-w-sm mb-5">
+            Choose a note from the sidebar or create a new encrypted note to begin writing.
+          </p>
+          <div className="flex items-center space-x-3">
+            {onNewNote && (
+              <button
+                onClick={onNewNote}
+                className="flex items-center space-x-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-slate-950 text-xs font-bold rounded-xl shadow-md shadow-indigo-600/20 transition-all active:scale-95 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>New Encrypted Note</span>
+              </button>
+            )}
             <button
-              onClick={onNewNote}
-              className="flex items-center space-x-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-slate-950 text-xs font-bold rounded-xl shadow-md shadow-indigo-600/20 transition-all active:scale-95 cursor-pointer"
+              onClick={onToggleMobileSidebar}
+              className="md:hidden px-4 py-2.5 bg-slate-800 text-slate-300 text-xs font-semibold rounded-xl cursor-pointer"
             >
-              <Plus className="w-4 h-4" />
-              <span>New Encrypted Note</span>
+              Open Notes List
             </button>
-          )}
-          <button
-            onClick={onToggleMobileSidebar}
-            className="md:hidden px-4 py-2.5 bg-slate-800 text-slate-300 text-xs font-semibold rounded-xl cursor-pointer"
-          >
-            Open Notes List
-          </button>
+          </div>
+        </div>
+        <div className="h-8 border-t border-slate-800/60 px-6 flex items-center text-[11px] text-slate-500 shrink-0 bg-ctp-base">
+          <span className="font-mono text-slate-400 font-medium">v{APP_VERSION}</span>
         </div>
       </main>
     );
@@ -490,8 +497,12 @@ export const Editor: React.FC<EditorProps> = ({
 
       {/* Footer Info */}
       <div className="h-8 border-t border-slate-800/60 px-6 flex items-center justify-between text-[11px] text-slate-500 shrink-0 bg-ctp-base">
-        <div>
-          {wordCount} {wordCount === 1 ? 'word' : 'words'} • {charCount} {charCount === 1 ? 'character' : 'characters'}
+        <div className="flex items-center space-x-2">
+          <span className="font-mono text-slate-400 font-medium">v{APP_VERSION}</span>
+          <span className="text-slate-700">•</span>
+          <span>
+            {wordCount} {wordCount === 1 ? 'word' : 'words'} • {charCount} {charCount === 1 ? 'character' : 'characters'}
+          </span>
         </div>
         <div>
           Last updated: {new Date(note.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

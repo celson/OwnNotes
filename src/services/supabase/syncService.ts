@@ -21,6 +21,9 @@ class SupabaseSyncService {
   private statusListeners = new Set<(status: SyncStatus) => void>();
   private activeChannel: ReturnType<NonNullable<ReturnType<typeof getSupabaseClient>>['channel']> | null = null;
   private claimedVaultId: string | null = null;
+  private isSyncing = false;
+  private syncQueued = false;
+  private queuedCallbacks: (() => void)[] = [];
 
   /**
    * Ensures this device holds an authenticated session and has claimed/attached
@@ -148,8 +151,33 @@ class SupabaseSyncService {
 
   /**
    * Full bi-directional sync: pushes local pending records and pulls remote updates.
+   * Serialized with a concurrency lock to avoid race conditions.
    */
   public async syncAll(onRemoteChanges?: () => void): Promise<void> {
+    if (onRemoteChanges) {
+      this.queuedCallbacks.push(onRemoteChanges);
+    }
+
+    if (this.isSyncing) {
+      this.syncQueued = true;
+      return;
+    }
+
+    this.isSyncing = true;
+    try {
+      await this.executeSyncAll();
+    } finally {
+      this.isSyncing = false;
+      if (this.syncQueued) {
+        this.syncQueued = false;
+        queueMicrotask(() => {
+          this.syncAll();
+        });
+      }
+    }
+  }
+
+  private async executeSyncAll(): Promise<void> {
     const client = getSupabaseClient();
     const vaultId = vaultKeyManager.getVaultId();
 
@@ -249,8 +277,14 @@ class SupabaseSyncService {
       }
 
       this.setStatus('synced');
-      if (onRemoteChanges) {
-        onRemoteChanges();
+      const callbacks = [...this.queuedCallbacks];
+      this.queuedCallbacks = [];
+      for (const cb of callbacks) {
+        try {
+          cb();
+        } catch (cbErr) {
+          console.error('Remote changes callback error:', cbErr);
+        }
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -281,7 +315,7 @@ class SupabaseSyncService {
       try {
         const channel = client
           .channel(`vault-${vaultId}`)
-          .on(
+          .on<SupabaseNoteRow>(
             'postgres_changes',
             {
               event: '*',
@@ -289,9 +323,45 @@ class SupabaseSyncService {
               table: 'ownnotes_records',
               filter: `vault_id=eq.${vaultId}`,
             },
-            () => {
-              // Trigger sync sweep on incoming remote changes
-              this.syncAll(onRemoteChange);
+            async (payload) => {
+              try {
+                const eventType = payload.eventType;
+                const newRow = payload.new as SupabaseNoteRow | undefined;
+                const oldRow = payload.old as Partial<SupabaseNoteRow> | undefined;
+
+                let changedLocally = false;
+
+                if (eventType === 'DELETE' || (newRow && newRow.is_deleted)) {
+                  const idToDelete = newRow?.id || oldRow?.id;
+                  if (idToDelete) {
+                    await storageAdapter.deleteEncrypted(idToDelete);
+                    changedLocally = true;
+                  }
+                } else if (newRow && newRow.id && !newRow.is_deleted) {
+                  const local = (await storageAdapter.getAllEncrypted()).find((r) => r.id === newRow.id);
+                  if (!local || newRow.updated_at > local.updatedAt) {
+                    await storageAdapter.saveEncrypted({
+                      id: newRow.id,
+                      nonce: newRow.nonce,
+                      ciphertext: newRow.ciphertext,
+                      createdAt: newRow.created_at,
+                      updatedAt: newRow.updated_at,
+                    });
+                    changedLocally = true;
+                  }
+                }
+
+                // If immediate local persistence succeeded, notify listeners right away for instant live UI update
+                if (changedLocally && onRemoteChange) {
+                  onRemoteChange();
+                }
+
+                // Follow up with scheduled sync sweep to ensure full vault consistency
+                this.syncAll(onRemoteChange);
+              } catch (err) {
+                console.error('Supabase Realtime payload error:', err);
+                this.syncAll(onRemoteChange);
+              }
             }
           )
           .subscribe((status, err) => {

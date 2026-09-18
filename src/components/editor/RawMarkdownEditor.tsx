@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 
 interface RawMarkdownEditorProps {
   value: string;
@@ -11,6 +11,25 @@ export const RawMarkdownEditor: React.FC<RawMarkdownEditorProps> = ({
   onChange,
   placeholder = 'Write raw markdown source...',
 }) => {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const lastValueRef = useRef(value);
+
+  // Preserve cursor position during external updates if focused
+  useEffect(() => {
+    if (textareaRef.current && document.activeElement === textareaRef.current) {
+      if (value !== lastValueRef.current) {
+        const start = textareaRef.current.selectionStart;
+        const end = textareaRef.current.selectionEnd;
+        textareaRef.current.value = value;
+        textareaRef.current.setSelectionRange(
+          Math.min(start, value.length),
+          Math.min(end, value.length)
+        );
+      }
+    }
+    lastValueRef.current = value;
+  }, [value]);
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Tab') {
       e.preventDefault();
@@ -31,6 +50,7 @@ export const RawMarkdownEditor: React.FC<RawMarkdownEditorProps> = ({
   return (
     <div className="w-full flex-1 flex flex-col">
       <textarea
+        ref={textareaRef}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={handleKeyDown}

@@ -50,6 +50,10 @@ export const App: React.FC = () => {
     });
 
     const unregLock = vaultKeyManager.onLock(() => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+      }
       setIsUnlocked(false);
       // Evict decrypted plaintext from React state immediately
       setNotes([]);
@@ -247,8 +251,12 @@ Enjoy private note taking!
 
           // Debounce encryption and storage write
           if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-          saveTimeoutRef.current = setTimeout(() => {
-            persistNoteEncrypted(updated);
+          saveTimeoutRef.current = setTimeout(async () => {
+            try {
+              await persistNoteEncrypted(updated);
+            } finally {
+              saveTimeoutRef.current = null;
+            }
           }, 350);
 
           return updated;

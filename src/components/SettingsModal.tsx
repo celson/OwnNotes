@@ -14,6 +14,10 @@ import {
   Copy,
   Code2,
   Fingerprint,
+  Sparkles,
+  RefreshCw,
+  ExternalLink,
+  Key,
 } from 'lucide-react';
 import { exportVaultBackup, importVaultBackup } from '../services/backup.js';
 import {
@@ -28,6 +32,13 @@ import { checkVerifierToken } from '../crypto/kdf.js';
 import { phraseToSeed, deriveAllKeys, wipe } from '../crypto/index.js';
 import { isValidPhrase } from '../crypto/mnemonic.js';
 import { storageAdapter } from '../services/storage/indexedDbAdapter.js';
+import {
+  APP_VERSION,
+  checkForUpdates,
+  getStoredGitHubToken,
+  setStoredGitHubToken,
+  type UpdateInfo,
+} from '../services/updateService.js';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -178,6 +189,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [biometricPhraseInput, setBiometricPhraseInput] = useState('');
   const [biometricMessage, setBiometricMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [isTogglingBiometrics, setIsTogglingBiometrics] = useState(false);
+
+  // Update checker state
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const [updateResult, setUpdateResult] = useState<UpdateInfo | null>(null);
+  const [showTokenConfig, setShowTokenConfig] = useState(false);
+  const [githubTokenInput, setGithubTokenInput] = useState(() => getStoredGitHubToken());
+  const [tokenSavedMessage, setTokenSavedMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -340,6 +358,34 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     } catch {
       // Fallback
     }
+  };
+
+  const handleCheckUpdateInModal = async () => {
+    setIsCheckingUpdate(true);
+    setUpdateResult(null);
+    try {
+      const res = await checkForUpdates();
+      setUpdateResult(res);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setUpdateResult({
+        hasUpdate: false,
+        currentVersion: APP_VERSION,
+        latestVersion: null,
+        releaseUrl: null,
+        releaseNotes: null,
+        publishedAt: null,
+        error: `Erro ao verificar atualizações: ${msg}`,
+      });
+    } finally {
+      setIsCheckingUpdate(false);
+    }
+  };
+
+  const handleSaveGithubToken = () => {
+    setStoredGitHubToken(githubTokenInput);
+    setTokenSavedMessage('Token salvo com sucesso!');
+    setTimeout(() => setTokenSavedMessage(null), 3000);
   };
 
   return (
@@ -574,6 +620,142 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   className="hidden"
                 />
               </div>
+            </div>
+
+            {/* Section: Version & Updates */}
+            <div className="pt-3 border-t border-slate-800">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-semibold text-slate-100 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                  Versão & Atualizações
+                </h4>
+                <span className="font-mono text-[11px] px-2 py-0.5 rounded bg-slate-800 text-indigo-300 font-medium">
+                  v{APP_VERSION}
+                </span>
+              </div>
+              <p className="text-slate-400 mb-3 leading-relaxed">
+                Verifique se há novas versões disponíveis do OwnNotes no GitHub Releases.
+              </p>
+
+              {/* Update Status / Result display */}
+              {updateResult && (
+                <div
+                  className={`p-3 rounded-xl mb-3 border text-xs space-y-2 ${
+                    updateResult.hasUpdate
+                      ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-200'
+                      : updateResult.error
+                      ? 'bg-amber-950/30 border-amber-500/30 text-amber-200'
+                      : 'bg-slate-950 border-slate-800 text-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      {updateResult.hasUpdate ? (
+                        <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
+                      ) : updateResult.error ? (
+                        <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                      ) : (
+                        <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                      )}
+                      <span className="font-semibold">
+                        {updateResult.hasUpdate
+                          ? `Nova versão disponível: v${updateResult.latestVersion}`
+                          : updateResult.error
+                          ? 'Aviso na verificação'
+                          : 'Você está usando a versão mais recente!'}
+                      </span>
+                    </div>
+                    {updateResult.releaseUrl && (
+                      <a
+                        href={updateResult.releaseUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center space-x-1 text-[11px] text-indigo-400 hover:text-indigo-300 underline font-medium"
+                      >
+                        <span>Ver no GitHub</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
+                  </div>
+
+                  {updateResult.error && (
+                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                      {updateResult.error}
+                    </p>
+                  )}
+
+                  {updateResult.releaseNotes && (
+                    <div className="pt-2 border-t border-slate-800/60 max-h-32 overflow-y-auto font-mono text-[10px] text-slate-300 whitespace-pre-wrap bg-slate-900/60 p-2 rounded">
+                      {updateResult.releaseNotes}
+                    </div>
+                  )}
+
+                  {updateResult.hasUpdate && updateResult.releaseUrl && (
+                    <div className="pt-1">
+                      <a
+                        href={updateResult.releaseUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition-colors"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Baixar Atualização (v{updateResult.latestVersion})</span>
+                      </a>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleCheckUpdateInModal}
+                  disabled={isCheckingUpdate}
+                  className="flex items-center space-x-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-semibold rounded-lg transition-colors cursor-pointer text-xs"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isCheckingUpdate ? 'animate-spin' : ''}`} />
+                  <span>{isCheckingUpdate ? 'Verificando...' : 'Verificar Atualizações'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowTokenConfig((prev) => !prev)}
+                  className="text-slate-400 hover:text-slate-200 text-xs underline flex items-center space-x-1 cursor-pointer"
+                >
+                  <Key className="w-3 h-3" />
+                  <span>{showTokenConfig ? 'Ocultar Token GitHub' : 'Configurar Token GitHub'}</span>
+                </button>
+              </div>
+
+              {showTokenConfig && (
+                <div className="mt-3 p-3 bg-slate-950 border border-slate-800 rounded-xl space-y-2 text-xs">
+                  <label className="block text-slate-300 font-medium">
+                    GitHub Personal Access Token (Opcional)
+                  </label>
+                  <p className="text-slate-500 text-[11px] leading-relaxed">
+                    Necessário apenas se o repositório for privado ou para evitar o limite de taxa (rate limit) da API do GitHub.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="password"
+                      value={githubTokenInput}
+                      onChange={(e) => setGithubTokenInput(e.target.value)}
+                      placeholder="ghp_xxxxxxxxxxxx"
+                      className="flex-1 px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-slate-200 font-mono text-xs focus:border-indigo-500 focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleSaveGithubToken}
+                      className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg font-medium text-xs transition-colors cursor-pointer"
+                    >
+                      Salvar
+                    </button>
+                  </div>
+                  {tokenSavedMessage && (
+                    <span className="text-emerald-400 text-[11px] block">{tokenSavedMessage}</span>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Section: Danger Zone */}

@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Lock, ShieldCheck, Settings, RefreshCw, Cloud, CloudOff, CloudCheck, AlertTriangle } from 'lucide-react';
 import type { SyncStatus } from '../services/supabase/syncService.js';
+import { vaultKeyManager, formatAutoLockTime } from '../services/vaultKeyManager.js';
 
 interface SecurityHeaderProps {
   onLock: () => void;
@@ -19,6 +20,25 @@ export const SecurityHeader: React.FC<SecurityHeaderProps> = ({
   onManualSync,
   isCloudConfigured,
 }) => {
+  const [remainingSeconds, setRemainingSeconds] = useState(() => vaultKeyManager.getRemainingSeconds());
+
+  useEffect(() => {
+    setRemainingSeconds(vaultKeyManager.getRemainingSeconds());
+
+    const unregActivity = vaultKeyManager.onActivity(() => {
+      setRemainingSeconds(vaultKeyManager.getRemainingSeconds());
+    });
+
+    const interval = setInterval(() => {
+      setRemainingSeconds(vaultKeyManager.getRemainingSeconds());
+    }, 1000);
+
+    return () => {
+      unregActivity();
+      clearInterval(interval);
+    };
+  }, [autoLockMinutes]);
+
   return (
     <header className="h-14 border-b border-slate-800 bg-slate-900/90 backdrop-blur-md px-3 sm:px-4 flex items-center justify-between z-10 shrink-0 select-none">
       <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 shrink-0">
@@ -36,10 +56,26 @@ export const SecurityHeader: React.FC<SecurityHeaderProps> = ({
       </div>
 
       <div className="flex items-center space-x-1.5 sm:space-x-2.5 shrink-0">
-        {/* Memory status */}
-        <div className="hidden lg:flex items-center space-x-1 text-xs text-slate-400 bg-slate-800/60 px-2.5 py-1 rounded-md border border-slate-700/50 shrink-0">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          <span>RAM-only • Auto-lock: {autoLockMinutes}m</span>
+        {/* Memory status with live Auto-Lock countdown */}
+        <div
+          className="hidden lg:flex items-center space-x-1.5 text-xs text-slate-400 bg-slate-800/60 px-2.5 py-1 rounded-md border border-slate-700/50 shrink-0"
+          title={`Chave protegida em RAM. Auto-bloqueio configurado para ${autoLockMinutes}m de inatividade (reseta ao digitar ou mover o mouse).`}
+        >
+          <span
+            className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+              remainingSeconds > 0 && remainingSeconds <= 30
+                ? 'bg-rose-400 animate-ping'
+                : remainingSeconds > 0 && remainingSeconds <= 60
+                ? 'bg-amber-400 animate-pulse'
+                : 'bg-emerald-400 animate-pulse'
+            }`}
+          />
+          <span className="font-medium text-slate-400">RAM-only</span>
+          <span className="text-slate-600">•</span>
+          <span className="text-slate-400">Auto-lock:</span>
+          <span className="tabular-nums font-mono text-slate-200 font-medium">
+            {formatAutoLockTime(remainingSeconds)}
+          </span>
         </div>
 
         {/* Cloud Sync Status */}

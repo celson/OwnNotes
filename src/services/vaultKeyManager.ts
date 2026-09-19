@@ -18,8 +18,11 @@ class VaultKeyManager {
   private activeSyncProof: string | null = null;
   private autoLockMinutes = 15; // default: 15 minutes
   private autoLockTimer: ReturnType<typeof setTimeout> | null = null;
+  private autoLockDeadline: number | null = null;
+  private lastActivityTime = 0;
   private lockListeners = new Set<Listener>();
   private unlockListeners = new Set<Listener>();
+  private activityListeners = new Set<Listener>();
 
   constructor() {
     this.setupInactivityListeners();
@@ -44,7 +47,7 @@ class VaultKeyManager {
     // Zero the temporary seed memory buffer immediately
     wipe(seed);
 
-    this.resetAutoLockTimer();
+    this.resetAutoLockTimer(true);
     this.notifyUnlock();
 
     return {
@@ -69,11 +72,14 @@ class VaultKeyManager {
     }
     this.activeVaultId = null;
     this.activeSyncProof = null;
+    this.autoLockDeadline = null;
+    this.lastActivityTime = 0;
     if (this.autoLockTimer) {
       clearTimeout(this.autoLockTimer);
       this.autoLockTimer = null;
     }
     this.notifyLock();
+    this.notifyActivity();
   }
 
   /**
@@ -127,7 +133,18 @@ class VaultKeyManager {
 
   public setAutoLockMinutes(mins: number): void {
     this.autoLockMinutes = mins;
-    this.resetAutoLockTimer();
+    this.resetAutoLockTimer(true);
+  }
+
+  /**
+   * Returns remaining seconds until auto-lock triggers due to inactivity.
+   * Returns 0 if locked or auto-lock is disabled.
+   */
+  public getRemainingSeconds(): number {
+    if (!this.isUnlocked() || !this.autoLockDeadline || this.autoLockMinutes <= 0) {
+      return 0;
+    }
+    return Math.max(0, Math.ceil((this.autoLockDeadline - Date.now()) / 1000));
   }
 
   public onLock(cb: Listener): () => void {
@@ -138,6 +155,11 @@ class VaultKeyManager {
   public onUnlock(cb: Listener): () => void {
     this.unlockListeners.add(cb);
     return () => this.unlockListeners.delete(cb);
+  }
+
+  public onActivity(cb: Listener): () => void {
+    this.activityListeners.add(cb);
+    return () => this.activityListeners.delete(cb);
   }
 
   private notifyLock(): void {
@@ -160,16 +182,41 @@ class VaultKeyManager {
     }
   }
 
+  private notifyActivity(): void {
+    for (const cb of this.activityListeners) {
+      try {
+        cb();
+      } catch (err) {
+        console.error('Activity listener error:', err);
+      }
+    }
+  }
+
   /**
    * Resets the auto-lock countdown timer on user activity.
+   * @param force If true, bypasses the 1-second throttle (used on unlock or settings change).
    */
-  public resetAutoLockTimer(): void {
+  public resetAutoLockTimer(force = false): void {
+    const now = Date.now();
+    // Throttle high-frequency events (like mousemove) so we don't spam timer resets
+    if (!force && now - this.lastActivityTime < 1000) {
+      return;
+    }
+    this.lastActivityTime = now;
+
     if (this.autoLockTimer) {
       clearTimeout(this.autoLockTimer);
       this.autoLockTimer = null;
     }
 
-    if (!this.isUnlocked() || this.autoLockMinutes <= 0) return;
+    if (!this.isUnlocked() || this.autoLockMinutes <= 0) {
+      this.autoLockDeadline = null;
+      this.notifyActivity();
+      return;
+    }
+
+    this.autoLockDeadline = now + this.autoLockMinutes * 60 * 1000;
+    this.notifyActivity();
 
     this.autoLockTimer = setTimeout(() => {
       console.info('Auto-lock triggered by inactivity timeout');
@@ -207,3 +254,18 @@ class VaultKeyManager {
 }
 
 export const vaultKeyManager = new VaultKeyManager();
+
+/**
+ * Formats remaining auto-lock seconds into an unambiguous human-readable countdown string.
+ * e.g. 899 -> "14m 59s", 59 -> "59s", 0 -> "0s"
+ */
+export function formatAutoLockTime(totalSeconds: number): string {
+  if (totalSeconds <= 0) return '0s';
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  if (minutes > 0) {
+    return `${minutes}m ${String(seconds).padStart(2, '0')}s`;
+  }
+  return `${seconds}s`;
+}

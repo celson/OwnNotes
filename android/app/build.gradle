@@ -1,4 +1,26 @@
 apply plugin: 'com.android.application'
+import groovy.json.JsonSlurper
+
+def getAppVersionInfo() {
+    try {
+        def packageJsonFile = file('../../package.json')
+        if (packageJsonFile.exists()) {
+            def packageJson = new JsonSlurper().parseText(packageJsonFile.text)
+            def version = packageJson.version
+            def parts = version.tokenize('.').collect { it.tokenize('-')[0].toInteger() }
+            def major = parts.size() > 0 ? parts[0] : 0
+            def minor = parts.size() > 1 ? parts[1] : 0
+            def patch = parts.size() > 2 ? parts[2] : 0
+            def code = Math.max(major * 10000 + minor * 100 + patch, 21)
+            return [versionName: version, versionCode: code]
+        }
+    } catch (Exception e) {
+        logger.warn("Could not parse package.json for version, using fallback: " + e.message)
+    }
+    return [versionName: "0.5.11", versionCode: 511]
+}
+
+def appVersionInfo = getAppVersionInfo()
 
 android {
     namespace = "com.ownnotes.app"
@@ -7,8 +29,8 @@ android {
         applicationId "com.ownnotes.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 18
-        versionName "0.5.8"
+        versionCode appVersionInfo.versionCode
+        versionName appVersionInfo.versionName
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

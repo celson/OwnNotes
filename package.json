@@ -1,7 +1,7 @@
 {
   "name": "ownnotes",
   "private": true,
-  "version": "0.5.10",
+  "version": "0.5.11",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -14,7 +14,8 @@
     "cap:open": "cap open android",
     "tauri": "tauri",
     "desktop:dev": "tauri dev",
-    "desktop:build": "tauri build"
+    "desktop:build": "tauri build",
+    "bump": "node scripts/bump-version.js"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.2",

@@ -28,4 +28,5 @@ dist-apk
 *.sln
 *.sw?
 .mcp.json
+mise.toml
 

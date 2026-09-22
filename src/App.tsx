@@ -302,6 +302,26 @@ Enjoy private note taking!
     }
   };
 
+  // Navigate to a note from a mention or link, adjusting filters to ensure visibility
+  const handleSelectNoteFromMention = useCallback((targetId: string) => {
+    const target = notes.find((n) => n.id === targetId);
+    if (!target) return;
+
+    if (target.isTrashed) {
+      setActiveFilter('trash');
+    } else {
+      if (activeFilter !== 'all') {
+        setActiveFilter('all');
+      }
+      if (selectedTag && !target.tags.includes(selectedTag)) {
+        setSelectedTag(null);
+      }
+    }
+
+    setSelectedNoteId(targetId);
+    setIsMobileSidebarOpen(false);
+  }, [notes, activeFilter, selectedTag]);
+
   const handleLockVault = () => {
     vaultKeyManager.lock();
   };
@@ -380,6 +400,8 @@ Enjoy private note taking!
 
         <Editor
           note={selectedNote}
+          notes={notes}
+          onSelectNote={handleSelectNoteFromMention}
           onUpdateNote={handleUpdateNote}
           onDeleteNote={handleDeleteNote}
           onNewNote={handleNewNote}

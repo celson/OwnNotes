@@ -16,12 +16,16 @@ import { createLowlight, common } from 'lowlight';
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
 import { SearchHighlightExtension } from './searchHighlightExtension.js';
 import { serializeClipboardText } from './clipboardUtils.js';
+import { NoteMention } from './noteMentionExtension.js';
+import type { NoteItem } from '../../crypto/types.js';
 
 const lowlight = createLowlight(common);
 
 interface RichMarkdownEditorProps {
   content: string;
   noteId: string;
+  notes?: NoteItem[];
+  onSelectNote?: (id: string) => void;
   onChange: (markdown: string) => void;
   onEditorReady: (editor: Editor | null) => void;
 }
@@ -29,10 +33,27 @@ interface RichMarkdownEditorProps {
 export const RichMarkdownEditor: React.FC<RichMarkdownEditorProps> = ({
   content,
   noteId,
+  notes,
+  onSelectNote,
   onChange,
   onEditorReady,
 }) => {
   const isExternalUpdateRef = useRef(false);
+  const notesRef = useRef(notes || []);
+  const onSelectNoteRef = useRef(onSelectNote);
+  const noteIdRef = useRef(noteId);
+
+  useEffect(() => {
+    notesRef.current = notes || [];
+  }, [notes]);
+
+  useEffect(() => {
+    onSelectNoteRef.current = onSelectNote;
+  }, [onSelectNote]);
+
+  useEffect(() => {
+    noteIdRef.current = noteId;
+  }, [noteId]);
 
   const editor = useEditor({
     extensions: [
@@ -72,6 +93,11 @@ export const RichMarkdownEditor: React.FC<RichMarkdownEditorProps> = ({
       TableHeader,
       TableCell,
       SearchHighlightExtension,
+      NoteMention.configure({
+        onSelectNote: (id: string) => onSelectNoteRef.current?.(id),
+        getNotes: () => notesRef.current,
+        getCurrentNoteId: () => noteIdRef.current,
+      }),
     ],
     content,
     editorProps: {

@@ -1,7 +1,7 @@
 {
   "name": "ownnotes",
   "private": true,
-  "version": "0.5.11",
+  "version": "0.5.12",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -39,6 +39,7 @@
     "@tiptap/extension-task-list": "^3.31.3",
     "@tiptap/react": "^3.31.3",
     "@tiptap/starter-kit": "^3.31.3",
+    "@tiptap/suggestion": "^3.31.3",
     "dexie": "^4.0.11",
     "lowlight": "^3.3.0",
     "lucide-react": "^1.16.0",

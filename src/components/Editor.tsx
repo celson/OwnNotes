@@ -59,6 +59,8 @@ export interface MatchEntry {
 
 interface EditorProps {
   note: NoteItem | null;
+  notes?: NoteItem[];
+  onSelectNote?: (id: string) => void;
   onUpdateNote: (updated: Partial<NoteItem>) => void;
   onDeleteNote: (id: string, permanent?: boolean) => void;
   onNewNote?: () => void;
@@ -70,6 +72,8 @@ interface EditorProps {
 
 export const Editor: React.FC<EditorProps> = ({
   note,
+  notes,
+  onSelectNote,
   onUpdateNote,
   onDeleteNote,
   onNewNote,
@@ -280,13 +284,25 @@ export const Editor: React.FC<EditorProps> = ({
     );
   }
 
+  // Reset uncommitted tag input when switching notes
+  React.useEffect(() => {
+    setTagInput('');
+  }, [note?.id]);
+
+  const commitTag = () => {
+    if (!note) return;
+    const clean = tagInput.trim().replace(/^#/, '').toLowerCase();
+    if (clean && !note.tags.includes(clean)) {
+      onUpdateNote({ tags: [...note.tags, clean] });
+    }
+    setTagInput('');
+  };
+
   const handleAddTag = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' || e.key === ',') {
       e.preventDefault();
-      const clean = tagInput.trim().replace(/^#/, '').toLowerCase();
-      if (clean && !note.tags.includes(clean)) {
-        onUpdateNote({ tags: [...note.tags, clean] });
-      }
+      commitTag();
+    } else if (e.key === 'Escape') {
       setTagInput('');
     }
   };
@@ -471,6 +487,7 @@ export const Editor: React.FC<EditorProps> = ({
             value={tagInput}
             onChange={(e) => setTagInput(e.target.value)}
             onKeyDown={handleAddTag}
+            onBlur={commitTag}
             placeholder="Add tag (press Enter)..."
             className="bg-transparent text-[11px] text-slate-300 placeholder:text-slate-600 focus:outline-none min-w-24 px-1"
           />
@@ -488,6 +505,8 @@ export const Editor: React.FC<EditorProps> = ({
           <RichMarkdownEditor
             key={note.id}
             noteId={note.id}
+            notes={notes}
+            onSelectNote={onSelectNote}
             content={note.body}
             onChange={(newMarkdown) => onUpdateNote({ body: newMarkdown })}
             onEditorReady={setActiveTipTapEditor}

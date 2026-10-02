@@ -2,7 +2,7 @@
  * Update Service: In-App Version Checking via GitHub Releases API.
  */
 
-export const APP_VERSION = '0.5.12';
+export const APP_VERSION = '0.5.13';
 
 const GITHUB_REPO = 'celson/OwnNotes';
 const GITHUB_TOKEN_STORAGE_KEY = 'ownnotes_github_token';

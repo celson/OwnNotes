@@ -103,6 +103,11 @@ export const Editor: React.FC<EditorProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // Reset uncommitted tag input when switching notes
+  React.useEffect(() => {
+    setTagInput('');
+  }, [note?.id]);
+
   const [hasNavigated, setHasNavigated] = useState(false);
 
   const jumpToMatch = (index: number, matchArray: MatchEntry[]) => {
@@ -283,11 +288,6 @@ export const Editor: React.FC<EditorProps> = ({
       </main>
     );
   }
-
-  // Reset uncommitted tag input when switching notes
-  React.useEffect(() => {
-    setTagInput('');
-  }, [note?.id]);
 
   const commitTag = () => {
     if (!note) return;

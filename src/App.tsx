@@ -12,6 +12,7 @@ import { Editor } from './components/Editor.js';
 import { UnlockModal } from './components/UnlockModal.js';
 import { OnboardingModal } from './components/OnboardingModal.js';
 import { SettingsModal } from './components/SettingsModal.js';
+import { ErrorBoundary } from './components/ErrorBoundary.js';
 
 export const App: React.FC = () => {
   const [isUnlocked, setIsUnlocked] = useState(() => vaultKeyManager.isUnlocked());
@@ -398,18 +399,20 @@ Enjoy private note taking!
           onCloseMobile={() => setIsMobileSidebarOpen(false)}
         />
 
-        <Editor
-          note={selectedNote}
-          notes={notes}
-          onSelectNote={handleSelectNoteFromMention}
-          onUpdateNote={handleUpdateNote}
-          onDeleteNote={handleDeleteNote}
-          onNewNote={handleNewNote}
-          onToggleMobileSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
-          isSaving={isSaving}
-          syncStatus={syncStatus}
-          isCloudConfigured={cloudConfigured}
-        />
+        <ErrorBoundary>
+          <Editor
+            note={selectedNote}
+            notes={notes}
+            onSelectNote={handleSelectNoteFromMention}
+            onUpdateNote={handleUpdateNote}
+            onDeleteNote={handleDeleteNote}
+            onNewNote={handleNewNote}
+            onToggleMobileSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+            isSaving={isSaving}
+            syncStatus={syncStatus}
+            isCloudConfigured={cloudConfigured}
+          />
+        </ErrorBoundary>
       </div>
 
       {/* Unlock Dialog (if locked and not creating) */}

@@ -132,16 +132,20 @@ jobs:
           path: dist-apk/OwnNotes.apk
           retention-days: 30
 
-      - name: Publish or Update Latest Release on Main
+      # Rolling build of main. Published as a prerelease with make_latest: false so it
+      # never takes the "Latest" badge from versioned v* releases: the in-app update
+      # checker reads /releases/latest and must always get a semver tag.
+      - name: Publish or Update Rolling Main Build
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
-          name: OwnNotes (Official Release APK)
+          name: OwnNotes (Build de desenvolvimento - main)
           body: |
-            ### 📱 OwnNotes - Aplicativo Android Oficial (Release)
+            ### 📱 OwnNotes - Build de desenvolvimento (main)
 
-            Versão compilada em modo **Release** e assinada oficialmente para Android.
+            APK compilado em modo **Release** e assinado, gerado automaticamente a cada push na branch `main`.
+            Para versões estáveis com instaladores de todas as plataformas, use a [última versão oficial](https://github.com/${{ github.repository }}/releases/latest).
 
             - 🔐 **Criptografia Zero-Knowledge**: XChaCha20-Poly1305 + BIP-39 (RAM exclusiva)
             - ⚡ **Supabase Cloud Sync**: Sincronização em tempo real entre dispositivos
@@ -149,8 +153,8 @@ jobs:
 
             **Instalação**: Baixe o arquivo `OwnNotes.apk` abaixo diretamente no seu celular Android.
           files: dist-apk/OwnNotes.apk
-          prerelease: false
-          make_latest: true
+          prerelease: true
+          make_latest: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

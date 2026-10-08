@@ -102,7 +102,7 @@ export const RichMarkdownEditor: React.FC<RichMarkdownEditorProps> = ({
     content,
     editorProps: {
       attributes: {
-        class: 'prose prose-invert max-w-none focus:outline-none min-h-[300px] text-slate-200 text-sm leading-relaxed',
+        class: 'focus:outline-none min-h-[300px] text-slate-200 text-sm leading-relaxed',
       },
       clipboardTextSerializer: (slice, view) => {
         return serializeClipboardText(slice, view) as string;
